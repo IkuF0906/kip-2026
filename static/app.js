@@ -50,7 +50,6 @@ async function newProblem() {
   $("preview").hidden = true;
   $("result").hidden = true;
   $("problem-card").hidden = false;
-  $("note").hidden = false;
   resetNote();
   activeField = null;
   $("submit").disabled = false;

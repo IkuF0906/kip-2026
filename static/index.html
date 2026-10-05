@@ -40,19 +40,48 @@
         <p>次の関数を微分しなさい。</p>
         <div class="problem" id="problem"></div>
 
-        <div class="answer-row">
-          <span class="prefix">f'(x) =</span>
-          <math-field id="answer-math"></math-field>
-          <input id="answer-text" type="text" placeholder="例: 3x^2 + 2sin(x)" hidden>
-        </div>
-        <div class="math-buttons" id="math-buttons" aria-label="数式の入力ボタン"></div>
-        <div class="answer-actions">
-          <button id="submit" class="primary">答え合わせ</button>
-          <button id="toggle-input" class="link">テキストで入力する</button>
-        </div>
-        <p class="error" id="error" hidden></p>
-        <p class="preview" id="preview" hidden></p>
+        <div class="note card-section" id="note">
+          <div class="note-head">
+            <h2>ノート</h2>
+            <div class="segmented">
+              <button class="note-tab active" data-note="draw">手書き</button>
+              <button class="note-tab" data-note="memo">途中式</button>
+            </div>
+          </div>
 
+          <div id="note-draw">
+            <div class="note-tools">
+              <button class="note-tool active" data-tool="pen">ペン</button>
+              <button class="note-tool" data-tool="eraser">消しゴム</button>
+              <span class="spacer"></span>
+              <button id="note-undo">元に戻す</button>
+              <button id="note-clear">全部消す</button>
+            </div>
+            <canvas id="note-canvas" aria-label="手書きノート"></canvas>
+          </div>
+
+          <div id="note-memo" hidden>
+            <div id="memo-lines"></div>
+            <button id="memo-add">＋ 行を追加</button>
+            <p class="hint">Enter で次の行へ。下の入力ボタンは、最後に選んだ行に入ります。「解答欄へ」でその行の式を解答にコピーできます。</p>
+          </div>
+          <p class="hint">ノートは新しい問題を出すと白紙に戻ります。</p>
+        </div>
+
+        <div class="card-section">
+          <div class="answer-row">
+            <span class="prefix">f'(x) =</span>
+            <math-field id="answer-math"></math-field>
+            <input id="answer-text" type="text" placeholder="例: 3x^2 + 2sin(x)" hidden>
+          </div>
+          <div class="math-buttons" id="math-buttons" aria-label="数式の入力ボタン"></div>
+          <div class="answer-actions">
+            <button id="submit" class="primary">答え合わせ</button>
+            <button id="toggle-input" class="link">テキストで入力する</button>
+          </div>
+          <p class="error" id="error" hidden></p>
+          <p class="preview" id="preview" hidden></p>
+        </div>
       </div>
 
       <div class="card" id="result" hidden>
@@ -71,34 +100,6 @@
         </details>
         <p class="next-due" id="next-due"></p>
         <button id="next" class="primary">次の問題</button>
-      </div>
-
-      <div class="card note" id="note" hidden>
-        <div class="note-head">
-          <h2>ノート</h2>
-          <div class="segmented">
-            <button class="note-tab active" data-note="draw">手書き</button>
-            <button class="note-tab" data-note="memo">途中式</button>
-          </div>
-        </div>
-
-        <div id="note-draw">
-          <div class="note-tools">
-            <button class="note-tool active" data-tool="pen">ペン</button>
-            <button class="note-tool" data-tool="eraser">消しゴム</button>
-            <span class="spacer"></span>
-            <button id="note-undo">元に戻す</button>
-            <button id="note-clear">全部消す</button>
-          </div>
-          <canvas id="note-canvas" aria-label="手書きノート"></canvas>
-        </div>
-
-        <div id="note-memo" hidden>
-          <div id="memo-lines"></div>
-          <button id="memo-add">＋ 行を追加</button>
-          <p class="hint">Enter で次の行へ。上の入力ボタンは、最後に選んだ行に入ります。「解答欄へ」でその行の式を解答にコピーできます。</p>
-        </div>
-        <p class="hint">ノートは新しい問題を出すと白紙に戻ります。</p>
       </div>
     </section>
 
