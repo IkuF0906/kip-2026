@@ -68,6 +68,15 @@ python -m scripts.evaluate 200
 型ごとに、正解・誤答の判定率、1問あたりの診断できる誤答パターン数、処理時間を測ります。
 結果は [docs/evaluation.md](docs/evaluation.md) にまとめています。
 
+### 画面の確認
+
+```sh
+python -m scripts.screenshot
+```
+
+インストール済みの Chrome を Playwright で操作し、主な画面（問題・ノート・答え合わせ・入力方法・成績）の
+スクリーンショットを `screenshots/` に保存します。一時的な DB を使う専用のサーバーを起動するので、普段の解答履歴には影響しません。
+
 ## 仕組み
 
 ```
@@ -80,7 +89,7 @@ drill/
   api.py         Web API（FastAPI）と画面の配信
 static/          画面（HTML/CSS/JavaScript、KaTeX・MathLive は CDN から読み込み）
 tests/           pytest
-scripts/         評価スクリプト
+scripts/         評価・画面確認のスクリプト
 docs/            評価結果
 ```
 
