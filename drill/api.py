@@ -54,7 +54,7 @@ def _type_ids(unit: str | None) -> list[str]:
 
 def create_app(db_path: str, now=datetime.now) -> FastAPI:
     """now は現在時刻を返す関数（テストで時刻を固定するため差し替え可能）。"""
-    app = FastAPI(title="微積分ドリル")
+    app = FastAPI(title="数学ドリル")
     store = Store(db_path)
 
     @app.get("/api/units")

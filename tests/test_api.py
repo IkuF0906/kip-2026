@@ -25,7 +25,7 @@ def answer(client, problem_id, text):
 def test_index_is_served(client):
     res = client.get("/")
     assert res.status_code == 200
-    assert "微積分ドリル" in res.text
+    assert "数学ドリル" in res.text
 
 
 def test_problem_for_type(client):
