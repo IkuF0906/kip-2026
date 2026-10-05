@@ -12,11 +12,14 @@ from sympy.parsing.sympy_parser import (
 
 # 問題・解答で共通に使う変数。正の実数にしておくと ln や √ の簡約が素直になる
 X = sp.Symbol("x", positive=True)
+# 数列の項の番号
+N = sp.Symbol("n", positive=True)
 # 不定積分の積分定数
 C = sp.Symbol("C")
 
 LOCAL_NAMES = {
     "x": X,
+    "n": N,
     "C": C,
     "oo": sp.oo,
     "inf": sp.oo,
@@ -94,14 +97,14 @@ def parse_answer(text: str) -> sp.Expr:
         expr = parse_expr(normalized, local_dict=dict(LOCAL_NAMES), transformations=_TRANSFORMATIONS)
     except Exception as exc:
         raise AnswerParseError("数式として読み取れませんでした。括弧や演算子を確認してください") from exc
-    if not isinstance(expr, sp.Expr) or (expr.free_symbols - {X, C}):
-        raise AnswerParseError("x の式として読み取れませんでした")
+    if not isinstance(expr, sp.Expr) or (expr.free_symbols - {X, N, C}):
+        raise AnswerParseError("x（数列では n）の式として読み取れませんでした")
     return expr
 
 
 def _value(expr: sp.Expr, point: float) -> complex | None:
     try:
-        v = complex(expr.subs(X, point).evalf())
+        v = complex(expr.subs({X: point, N: point}).evalf())
     except (TypeError, ValueError):
         return None
     if v != v or abs(v) == float("inf"):
@@ -110,7 +113,7 @@ def _value(expr: sp.Expr, point: float) -> complex | None:
 
 
 def equivalent(a: sp.Expr, b: sp.Expr) -> bool:
-    """a と b が x の関数として等しいか。
+    """a と b が x（数列では n）の関数として等しいか。
 
     数値代入で判定し、評価できる点が足りないときだけ記号的な簡約に頼る
     （simplify は遅く、等しくても 0 にならないことがあるため）。

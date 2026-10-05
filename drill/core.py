@@ -6,7 +6,7 @@ from typing import Callable
 
 import sympy as sp
 
-from .checker import X, equivalent
+from .checker import C, N, X, equivalent
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,10 @@ class Unit:
     solve: Callable[[sp.Expr], sp.Expr] | None = None
     answer_suffix: str = ""  # 正解の表示の後ろに付ける LaTeX（不定積分の + C）
     needs_constant: bool = False  # 積分定数 C を書くよう促す（不定積分）
+    var: sp.Symbol = X  # 解答に使う変数（数列では n）
+
+    def allowed_symbols(self) -> set[sp.Symbol]:
+        return {self.var, C} if self.needs_constant else {self.var}
 
 
 @dataclass
@@ -39,7 +43,7 @@ class Built:
     f: sp.Expr  # 問題の中心となる式（微分・積分する関数など）
     wrongs: list[tuple[str, sp.Expr]]  # (誤答パターンID, その間違いをしたときの答え)
     steps: list[str]  # 解き方の手順（$...$ は LaTeX）
-    latex: str | None = None  # 問題の表示。省略時は f(x) = ... の形
+    latex: str | None = None  # 問題の表示。省略時は f(x) = ... の形。文章題で式がなければ ""
     answer: sp.Expr | None = None  # 正解。省略時は単元の solve で求める
     prompt: str | None = None  # 問題文。省略時は単元の既定
     answer_prefix: str | None = None  # 解答欄の左の表示。省略時は単元の既定
@@ -81,6 +85,10 @@ def tidy(expr: sp.Expr) -> sp.Expr:
     simplify は sin x + cos x を √2 cos(x - π/4) にするなど、教科書と違う形にすることがあるため、
     π を新たに持ち込まない候補のうち最も短いものを選ぶ。
     """
+    if expr.has(N):  # 数列の答え。和の公式（2次以上）は n(n+1) のように因数分解した形が見やすい
+        if expr.is_polynomial(N):
+            return sp.factor(expr) if sp.degree(expr, N) >= 2 else sp.expand(expr)
+        return expr
     if not expr.has(X):  # 定積分・極限などの答え（定数）。ln 16 は 4 ln 2 の形にする
         return sp.expand_log(sp.simplify(expr), force=True)
     if expr.is_polynomial(X):  # 多項式は x でくくらず、展開した形にする

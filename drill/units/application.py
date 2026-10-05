@@ -58,6 +58,11 @@ MISCONCEPTIONS = [
         r"極値をとる $x$ の値を答えた",
         r"極値は、その点での関数の値です。$f'(a) = 0$ となる $a$ を求めたら、$f(a)$ を計算します。",
     ),
+    Misconception(
+        "app_box_one_side",
+        "切り取る正方形が両端にあることを忘れた",
+        r"厚紙の 1 辺の両端から $x$ ずつ切り取るので、箱の底面の 1 辺は $a - x$ ではなく $a - 2x$ です。",
+    ),
 ]
 
 
@@ -147,8 +152,51 @@ def _build_extremum(rng):
     )
 
 
+def _max_on(f: sp.Expr, hi) -> tuple[sp.Expr, sp.Expr]:
+    """0 < x < hi での f の最大値と、そのときの x。箱の容積は両端で 0 になるので、内部の極値だけを調べる。"""
+    xs = [r for r in sp.solve(sp.diff(f, X), X) if r.is_real and 0 < r < hi]
+    best = max(xs, key=lambda r: f.subs(X, r))
+    return sp.simplify(f.subs(X, best)), best
+
+
+def _build_box(rng):
+    """文章題：厚紙の四隅を切り取って作る箱の容積の最大値。"""
+    k = rng.randint(1, 4)
+    # 最大になる x が整数になる縦・横（正方形 6k×6k、長方形 8k×5k）
+    a, b = rng.choice([(6 * k, 6 * k), (8 * k, 5 * k)])
+    volume = X * (a - 2 * X) * (b - 2 * X)
+    answer, x0 = _max_on(volume, sp.Rational(min(a, b), 2))
+    one_side, _ = _max_on(X * (a - X) * (b - X), min(a, b))
+    wrongs = [
+        ("extremum_x_value", x0),
+        ("app_box_one_side", one_side),
+    ]
+    dv = sp.expand(sp.diff(volume, X))
+    base = f"1 辺 ${to_latex(a - 2 * X)}$ の正方形" if a == b else f"縦 ${to_latex(b - 2 * X)}$、横 ${to_latex(a - 2 * X)}$ の長方形"
+    steps = [
+        rf"箱の底面は{base}、高さは $x$ なので $V(x) = x({to_latex(a - 2 * X)})({to_latex(b - 2 * X)})$（$0 < x < {to_latex(sp.Rational(min(a, b), 2))}$）",
+        rf"$V'(x) = {to_latex(dv)} = {to_latex(sp.factor(dv))}$ より、$x = {x0}$ で極大かつ最大。$V({x0}) = {answer}$",
+    ]
+    shape = f"1 辺 {a} cm の正方形" if a == b else f"縦 {b} cm、横 {a} cm の長方形"
+    prompt = (
+        f"{shape}の厚紙の四隅から、1 辺 $x$ cm の正方形を切り取り、残りを折り曲げてふたのない箱を作る。"
+        "箱の容積の最大値を求めなさい。"
+    )
+    return Built(
+        volume,
+        wrongs,
+        steps,
+        latex="",
+        answer=answer,
+        prompt=prompt,
+        answer_prefix=r"\text{容積の最大値} =",
+        meta={"a": a, "b": b},
+    )
+
+
 TYPES = [
     ProblemType("app_tangent", "application", "接線の方程式", r"$y = f'(a)(x - a) + f(a)$", _build_tangent),
     ProblemType("app_normal", "application", "法線の方程式", r"$y = -\frac{1}{f'(a)}(x - a) + f(a)$", _build_normal),
     ProblemType("app_extremum", "application", "極大値・極小値", r"3次関数の極値", _build_extremum),
+    ProblemType("app_box", "application", "最大・最小（文章題）", r"箱の容積 $V(x)$ を作って最大値を求める", _build_box),
 ]

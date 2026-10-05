@@ -1,7 +1,7 @@
 import pytest
 import sympy as sp
 
-from drill.checker import C, X, AnswerParseError, equivalent, parse_answer
+from drill.checker import C, N, X, AnswerParseError, equivalent, parse_answer
 
 
 @pytest.mark.parametrize(
@@ -25,6 +25,10 @@ from drill.checker import C, X, AnswerParseError, equivalent, parse_answer
         ("e-1", sp.E - 1),
         ("y = 2x + 1", 2 * X + 1),
         ("F(x)=x^2", X**2),
+        # 数列は n の式
+        ("n(n+1)/2", N * (N + 1) / 2),
+        ("3*2^(n-1)", 3 * 2 ** (N - 1)),
+        ("a_n = 2n^2 + 3n", 2 * N**2 + 3 * N),
     ],
 )
 def test_parse_answer(text, expected):
@@ -48,6 +52,12 @@ def test_equivalent_different_forms():
     assert equivalent((X**2 - 1) / (X - 1), X + 1)
     assert equivalent(sp.log(16), 4 * sp.log(2))
     assert equivalent(sp.Float(1.5), sp.Rational(3, 2))
+
+
+def test_equivalent_in_n():
+    assert equivalent(5 * 2 ** (N - 1) - 3, sp.Rational(5, 2) * 2**N - 3)
+    assert equivalent(N * (N + 1) * (2 * N + 1) / 6, N**3 / 3 + N**2 / 2 + N / 6)
+    assert not equivalent(3 * 2 ** (N - 1), 3 * 2**N)
 
 
 def test_not_equivalent():

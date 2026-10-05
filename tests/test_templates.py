@@ -3,19 +3,108 @@
 正解は、問題の型が作ったものとは別に、単元の定義から求め直して比べる。
 """
 
+from itertools import combinations, permutations, product
+
 import pytest
 import sympy as sp
+from sympy.calculus.util import maximum
 
-from drill.checker import X, equivalent
+from drill.checker import N, X, equivalent
 from drill.templates import MISCONCEPTIONS, PROBLEM_TYPES, UNITS, from_id, generate
 
 SEEDS = range(30)
 
 
+def _first_terms(p, count=6) -> list:
+    """数列の問題の第 1〜count 項（または第 count 項までの和）を、一般項を使わずに求める。"""
+    m = p.meta
+    kind = m["kind"]
+    if kind == "arith_sum":
+        return [sum(m["a"] + (i - 1) * m["d"] for i in range(1, n + 1)) for n in range(1, count + 1)]
+    if kind == "geom_sum":
+        return [sum(m["a"] * m["r"] ** (i - 1) for i in range(1, n + 1)) for n in range(1, count + 1)]
+    if kind == "sigma":
+        return [sum(m["term"].subs(m["k"], i) for i in range(1, n + 1)) for n in range(1, count + 1)]
+    if kind == "recur":
+        terms = [m["a1"]]
+        for n in range(1, count):
+            terms.append(m["next"](terms[-1], n))
+        return terms
+    raise AssertionError(kind)
+
+
+def _count_by_brute_force(p) -> int:
+    m = p.meta
+    if p.type_id == "prob_perm_comb":
+        pick = permutations if m["ordered"] else combinations
+        return sum(1 for _ in pick(range(m["n"]), m["r"]))
+    if m["variant"] == "circle":
+        # 回転で重なるものを同じとみなす：0 番の人から時計回りに読んだ並びで区別する
+        seen = set()
+        for order in permutations(range(m["n"])):
+            i = order.index(0)
+            seen.add(order[i:] + order[:i])
+        return len(seen)
+    if m["variant"] == "same":
+        return len(set(permutations(m["word"])))
+    return sum(1 for order in permutations(range(m["n"])) if abs(order.index(0) - order.index(1)) == 1)
+
+
+def _probability(p) -> sp.Rational:
+    m = p.meta
+    if p.type_id in ("prob_complement", "prob_binomial"):
+        rolls = list(product(range(1, 7), repeat=m["n"]))
+        hits = [sum(r in m["faces"] for r in roll) for roll in rolls]
+        good = sum(h >= 1 for h in hits) if p.type_id == "prob_complement" else sum(h == m["k"] for h in hits)
+        return sp.Rational(good, len(rolls))
+    if p.type_id == "prob_draw":
+        balls = ["r"] * m["red"] + ["w"] * m["white"]
+        pairs = list(permutations(range(len(balls)), 2))
+        if m["kind"] == "both_red":
+            good = sum(balls[i] == balls[j] == "r" for i, j in pairs)
+        else:
+            good = sum(balls[i] != balls[j] for i, j in pairs)
+        return sp.Rational(good, len(pairs))
+    if p.type_id == "prob_conditional":
+        # 製品 10000 個あたりの個数で数える
+        a_bad = 10000 * m["pa"] * m["da"]
+        b_bad = 10000 * (1 - m["pa"]) * m["db"]
+        return a_bad / (a_bad + b_bad)
+    if p.type_id == "prob_expectation":
+        tickets = [x for x, c in zip(m["prizes"], m["counts"]) for _ in range(c)]
+        return sp.Rational(sum(tickets), m["total"])
+    raise AssertionError(p.type_id)
+
+
 def check_answer(p) -> None:
     """単元の定義に照らして、正解が正しいことを確かめる。"""
     unit = p.unit.id
-    if unit == "derivative":
+    if p.type_id == "dint_area":
+        lo, hi = p.meta["lo"], p.meta["hi"]
+        d = sp.expand(p.f - p.meta["line"])
+        assert sp.degree(d, X) == 2 and d.subs(X, lo) == 0 and d.subs(X, hi) == 0, "交点が区間の端でない"
+        assert p.answer == abs(sp.integrate(d, (X, lo, hi)))
+    elif p.type_id == "dint_distance":
+        r, hi = p.meta["r"], p.meta["hi"]
+        assert p.f.subs(X, r) == 0 and p.f.subs(X, 0) * p.f.subs(X, hi) < 0, "途中で向きが変わらない"
+        assert p.answer == abs(sp.integrate(p.f, (X, 0, r))) + abs(sp.integrate(p.f, (X, r, hi)))
+    elif p.type_id == "app_box":
+        a, b = p.meta["a"], p.meta["b"]
+        volume = X * (a - 2 * X) * (b - 2 * X)
+        assert p.answer == maximum(volume, X, sp.Interval.open(0, sp.Rational(min(a, b), 2)))
+    elif unit == "sequence":
+        if p.meta["kind"] == "arith":
+            m = p.meta
+            assert p.answer.subs(N, m["p"]) == m["ap"] and p.answer.subs(N, m["q"]) == m["aq"]
+            assert sp.degree(p.answer, N) == 1
+        else:
+            for n, value in enumerate(_first_terms(p), start=1):
+                assert sp.simplify(p.answer.subs(N, n) - value) == 0, f"第 {n} 項が違う"
+    elif p.type_id in ("prob_perm_comb", "prob_arrange"):
+        assert p.answer == _count_by_brute_force(p)
+    elif unit == "probability":
+        assert p.answer == _probability(p)
+    elif unit == "derivative":
         assert equivalent(p.answer, sp.diff(p.f, X))
     elif unit == "integral":
         assert equivalent(sp.diff(p.answer, X), p.f)

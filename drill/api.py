@@ -38,6 +38,7 @@ def _problem_json(p: Problem) -> dict:
         "prompt": p.prompt,
         "latex": p.latex,
         "answer_prefix": p.answer_prefix,
+        "variable": str(p.unit.var),
     }
 
 
@@ -100,6 +101,10 @@ def create_app(db_path: str, now=datetime.now) -> FastAPI:
             user_expr = parse_answer(req.answer)
         except AnswerParseError as exc:
             raise HTTPException(400, str(exc))
+        extra = user_expr.free_symbols - p.unit.allowed_symbols()
+        if extra:
+            names = "、".join(sorted(str(s) for s in extra))
+            raise HTTPException(400, f"この問題では {names} は使いません。{p.unit.var} の式か数で答えてください")
         d = diagnose(p, user_expr)
         mc = d.misconception
         state = store.record(p.problem_id, p.type_id, req.answer, d.correct, mc.id if mc else None, now())

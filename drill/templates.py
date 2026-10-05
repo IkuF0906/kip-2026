@@ -11,9 +11,9 @@ import sympy as sp
 
 from .checker import X, equivalent
 from .core import Misconception, Problem, ProblemType, Unit, tidy, to_latex  # noqa: F401（他のモジュール向けに再公開）
-from .units import application, definite, derivative, integral, limit
+from .units import application, definite, derivative, integral, limit, probability, sequence
 
-_UNIT_MODULES = [derivative, integral, definite, limit, application]
+_UNIT_MODULES = [derivative, integral, definite, limit, application, sequence, probability]
 
 UNITS: dict[str, Unit] = {m.UNIT.id: m.UNIT for m in _UNIT_MODULES}
 MISCONCEPTIONS: dict[str, Misconception] = {mc.id: mc for m in _UNIT_MODULES for mc in m.MISCONCEPTIONS}
@@ -57,7 +57,7 @@ def generate(type_id: str, seed: int) -> Problem:
         f=b.f,
         answer=answer,
         wrongs=wrongs,
-        latex=b.latex or f"f(x) = {to_latex(b.f)}",
+        latex=b.latex if b.latex is not None else f"f(x) = {to_latex(b.f)}",
         prompt=b.prompt or unit.prompt,
         answer_prefix=prefix,
         answer_latex=answer_latex,

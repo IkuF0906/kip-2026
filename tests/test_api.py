@@ -86,7 +86,7 @@ def test_stats(client):
 
 def test_units_and_types(client):
     units = [u["id"] for u in client.get("/api/units").json()]
-    assert units == ["derivative", "integral", "definite", "limit", "application"]
+    assert units == ["derivative", "integral", "definite", "limit", "application", "sequence", "probability"]
     types = client.get("/api/types", params={"unit": "limit"}).json()
     assert types and all(t["unit"] == "limit" for t in types)
     assert client.get("/api/types", params={"unit": "nope"}).status_code == 404
@@ -111,6 +111,30 @@ def test_integral_answer_with_note(client):
     assert body["correct"] is True
     assert "C" in body["note"]
     assert body["answer_latex"].endswith("+ C")
+
+
+def test_sequence_answer_in_n(client):
+    # seq_recur-1 は a_1 = 2, a_{n+1} = 2a_n + 3。一般項は 5・2^{n-1} - 3
+    problem = client.get("/api/problem", params={"type": "seq_recur"}).json()
+    assert problem["variable"] == "n"
+    assert answer(client, "seq_recur-1", "5*2^(n-1) - 3").json()["correct"] is True
+    body = answer(client, "seq_recur-1", "5*2^n - 3").json()
+    assert body["misconception"]["id"] == "seq_recur_power_n"
+
+
+def test_wrong_variable_is_400(client):
+    res = answer(client, "seq_recur-1", "5*2^(x-1) - 3")
+    assert res.status_code == 400
+    assert "n の式" in res.json()["detail"]
+    assert answer(client, "power-0", "-15n^4 + 15n^2").status_code == 400
+    assert answer(client, "dint_poly-0", "3 + C").status_code == 400
+
+
+def test_word_problem_has_no_formula(client):
+    body = client.get("/api/problem", params={"type": "prob_draw"}).json()
+    assert body["latex"] == ""
+    assert "袋の中に" in body["prompt"]
+    assert body["variable"] == "x"
 
 
 def test_stats_has_unit(client):
