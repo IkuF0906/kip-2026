@@ -92,7 +92,6 @@ async function newProblem() {
   else if (type) path = `/api/problem?type=${type}`;
   else path = `/api/problem${unit ? `?unit=${unit}` : ""}`;
   current = await api(path);
-  setMathText($("problem-type"), `${current.unit_name} ／ ${current.type_name}`);
   setMathText($("prompt"), current.prompt);
   setLatex($("problem"), current.latex);
   $("problem").hidden = !current.latex; // 文章題で式がないときは問題文だけを出す
@@ -141,6 +140,8 @@ function showResult(r) {
   const verdict = $("verdict");
   verdict.textContent = r.correct ? "正解！" : "不正解";
   verdict.className = `verdict ${r.correct ? "ok" : "ng"}`;
+  // 単元・型の名前は解き方のヒントになるので、答え合わせの後にだけ出す
+  setMathText($("problem-type"), `この問題：${current.unit_name} ／ ${current.type_name}`);
   setLatex($("user-answer"), r.user_latex);
   setLatex($("correct-answer"), r.answer_latex);
 

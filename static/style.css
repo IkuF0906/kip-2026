@@ -97,7 +97,8 @@ select, input[type="text"] {
   margin-bottom: 16px;
 }
 
-.problem-type { color: var(--muted); font-size: 0.9rem; }
+#prompt { margin-top: 0; }
+.problem-type { color: var(--muted); font-size: 0.9rem; margin: 12px 0 0; }
 .problem { font-size: 1.5rem; margin: 8px 0 0; overflow-x: auto; }
 
 .answer-row { display: flex; align-items: center; gap: 8px; }
