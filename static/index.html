@@ -33,7 +33,10 @@
       <p class="hint" id="review-hint" hidden>期限が来た型・苦手な型から自動で出題します。</p>
 
       <div class="card" id="problem-card" hidden>
-        <div class="problem-type" id="problem-type"></div>
+        <div class="card-head">
+          <div class="problem-type" id="problem-type"></div>
+          <button id="open-guide" type="button">入力方法</button>
+        </div>
         <p>次の関数を微分しなさい。</p>
         <div class="problem" id="problem"></div>
 
@@ -50,34 +53,6 @@
         <p class="error" id="error" hidden></p>
         <p class="preview" id="preview" hidden></p>
 
-        <details class="guide" id="guide" open>
-          <summary>入力方法</summary>
-          <table id="guide-math">
-            <thead><tr><th>入力したいもの</th><th>キー操作</th><th>表示</th></tr></thead>
-            <tbody>
-              <tr><td>累乗</td><td><kbd>x</kbd> <kbd>^</kbd> <kbd>3</kbd> → <kbd>→</kbd> で指数から抜ける</td><td>$x^3$</td></tr>
-              <tr><td>分数</td><td><kbd>1</kbd> <kbd>/</kbd> <kbd>x</kbd>（<kbd>/</kbd> の前が分子、後が分母）→ <kbd>→</kbd> で分数から抜ける。分子が長いときは先に <kbd>(</kbd>…<kbd>)</kbd> で囲む</td><td>$\frac{1}{x}$</td></tr>
-              <tr><td>掛け算</td><td>並べて書けばよい（<kbd>2</kbd><kbd>x</kbd>）。明示するなら <kbd>*</kbd></td><td>$2x$、$2\cdot x$</td></tr>
-              <tr><td>関数</td><td><code>sin</code> <code>cos</code> <code>tan</code> <code>ln</code> と打つと自動で関数になる</td><td>$\sin(2x)$</td></tr>
-              <tr><td>指数関数</td><td><kbd>e</kbd> <kbd>^</kbd> で $e$ の指数を入力</td><td>$e^{2x}$</td></tr>
-              <tr><td>ルート</td><td><code>sqrt</code> と打つ</td><td>$\sqrt{x}$</td></tr>
-              <tr><td>括弧</td><td><kbd>(</kbd> を打つと閉じ括弧も自動で入る</td><td>$(x+1)$</td></tr>
-              <tr><td>答え合わせ</td><td><kbd>Enter</kbd></td><td></td></tr>
-            </tbody>
-          </table>
-          <table id="guide-text" hidden>
-            <thead><tr><th>入力したいもの</th><th>書き方</th><th>読み取られる式</th></tr></thead>
-            <tbody>
-              <tr><td>累乗</td><td><code>x^3</code>、指数が複数文字なら <code>x^(2/3)</code></td><td>$x^3$、$x^{2/3}$</td></tr>
-              <tr><td>分数</td><td><code>1/(x+1)</code>（分母は括弧で囲む）</td><td>$\frac{1}{x+1}$</td></tr>
-              <tr><td>掛け算</td><td><code>2x</code>、<code>x sin(x)</code>（<code>*</code> も使える）</td><td>$2x$、$x\sin x$</td></tr>
-              <tr><td>関数</td><td><code>sin(2x)</code>、<code>cos(x)</code>、<code>ln(x)</code></td><td>$\sin 2x$、$\ln x$</td></tr>
-              <tr><td>指数関数</td><td><code>e^(2x)</code>、<code>2^x</code></td><td>$e^{2x}$、$2^x$</td></tr>
-              <tr><td>ルート</td><td><code>sqrt(x)</code></td><td>$\sqrt{x}$</td></tr>
-              <tr><td>答え合わせ</td><td><kbd>Enter</kbd></td><td></td></tr>
-            </tbody>
-          </table>
-        </details>
       </div>
 
       <div class="card" id="result" hidden>
@@ -135,6 +110,37 @@
         <tbody id="stats-body"></tbody>
       </table>
     </section>
+    <dialog id="guide" aria-labelledby="guide-title">
+      <div class="dialog-head">
+        <h2 id="guide-title">入力方法</h2>
+        <button id="close-guide" type="button" aria-label="閉じる">×</button>
+      </div>
+      <table id="guide-math">
+        <thead><tr><th>入力したいもの</th><th>キー操作</th><th>表示</th></tr></thead>
+        <tbody>
+          <tr><td>累乗</td><td><kbd>x</kbd> <kbd>^</kbd> <kbd>3</kbd> → <kbd>→</kbd> で指数から抜ける</td><td>$x^3$</td></tr>
+          <tr><td>分数</td><td><kbd>1</kbd> <kbd>/</kbd> <kbd>x</kbd>（<kbd>/</kbd> の前が分子、後が分母）→ <kbd>→</kbd> で分数から抜ける。分子が長いときは先に <kbd>(</kbd>…<kbd>)</kbd> で囲む</td><td>$\frac{1}{x}$</td></tr>
+          <tr><td>掛け算</td><td>並べて書けばよい（<kbd>2</kbd><kbd>x</kbd>）。明示するなら <kbd>*</kbd></td><td>$2x$、$2\cdot x$</td></tr>
+          <tr><td>関数</td><td><code>sin</code> <code>cos</code> <code>tan</code> <code>ln</code> と打つと自動で関数になる</td><td>$\sin(2x)$</td></tr>
+          <tr><td>指数関数</td><td><kbd>e</kbd> <kbd>^</kbd> で $e$ の指数を入力</td><td>$e^{2x}$</td></tr>
+          <tr><td>ルート</td><td><code>sqrt</code> と打つ</td><td>$\sqrt{x}$</td></tr>
+          <tr><td>括弧</td><td><kbd>(</kbd> を打つと閉じ括弧も自動で入る</td><td>$(x+1)$</td></tr>
+          <tr><td>答え合わせ</td><td><kbd>Enter</kbd></td><td></td></tr>
+        </tbody>
+      </table>
+      <table id="guide-text" hidden>
+        <thead><tr><th>入力したいもの</th><th>書き方</th><th>読み取られる式</th></tr></thead>
+        <tbody>
+          <tr><td>累乗</td><td><code>x^3</code>、指数が複数文字なら <code>x^(2/3)</code></td><td>$x^3$、$x^{2/3}$</td></tr>
+          <tr><td>分数</td><td><code>1/(x+1)</code>（分母は括弧で囲む）</td><td>$\frac{1}{x+1}$</td></tr>
+          <tr><td>掛け算</td><td><code>2x</code>、<code>x sin(x)</code>（<code>*</code> も使える）</td><td>$2x$、$x\sin x$</td></tr>
+          <tr><td>関数</td><td><code>sin(2x)</code>、<code>cos(x)</code>、<code>ln(x)</code></td><td>$\sin 2x$、$\ln x$</td></tr>
+          <tr><td>指数関数</td><td><code>e^(2x)</code>、<code>2^x</code></td><td>$e^{2x}$、$2^x$</td></tr>
+          <tr><td>ルート</td><td><code>sqrt(x)</code></td><td>$\sqrt{x}$</td></tr>
+          <tr><td>答え合わせ</td><td><kbd>Enter</kbd></td><td></td></tr>
+        </tbody>
+      </table>
+    </dialog>
   </main>
 </body>
 </html>

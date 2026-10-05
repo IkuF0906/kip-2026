@@ -295,18 +295,18 @@ function setupMathButtons() {
   }
 }
 
-// 入力方法ガイドの開閉を覚えておく（使えない環境では毎回開いた状態）
+// 入力方法の一覧（ダイアログ）。背景をクリックしても閉じる
 function setupGuide() {
   const guide = $("guide");
-  try {
-    if (localStorage.getItem("guideOpen") === "0") guide.open = false;
-  } catch {}
-  guide.addEventListener("toggle", () => {
-    try {
-      localStorage.setItem("guideOpen", guide.open ? "1" : "0");
-    } catch {}
-  });
   renderMath(guide);
+  $("open-guide").addEventListener("click", () => guide.showModal());
+  $("close-guide").addEventListener("click", () => guide.close());
+  guide.addEventListener("click", (e) => {
+    // ダイアログの余白をクリックしたときも target は dialog になるため、座標で外側か判定する
+    const r = guide.getBoundingClientRect();
+    const outside = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+    if (outside) guide.close();
+  });
 }
 
 window.addEventListener("DOMContentLoaded", async () => {

@@ -138,9 +138,25 @@ td ul { margin: 0; padding-left: 18px; }
 
 .preview { color: var(--muted); margin: 8px 0 0; overflow-x: auto; }
 
-.guide { margin: 16px 0 0; }
-.guide table { margin-top: 8px; font-size: 0.9rem; }
-.guide th, .guide td { padding: 6px 10px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.card-head button { font-size: 0.9rem; padding: 4px 12px; }
+
+dialog#guide {
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px 20px;
+  background: var(--surface);
+  color: var(--text);
+}
+dialog#guide::backdrop { background: rgb(0 0 0 / 0.4); }
+.dialog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.dialog-head h2 { font-size: 1.1rem; margin: 0; }
+.dialog-head button { border: none; font-size: 1.3rem; line-height: 1; padding: 4px 8px; }
+dialog#guide table { font-size: 0.9rem; }
+dialog#guide th, dialog#guide td { padding: 6px 10px; }
 kbd {
   display: inline-block;
   min-width: 1.6em;
