@@ -47,6 +47,7 @@ async function newProblem() {
   $("answer-math").value = "";
   $("answer-text").value = "";
   $("error").hidden = true;
+  $("preview").hidden = true;
   $("result").hidden = true;
   $("problem-card").hidden = false;
   $("submit").disabled = false;
@@ -167,7 +168,50 @@ function toggleInput() {
   useText = !useText;
   $("answer-math").hidden = useText;
   $("answer-text").hidden = !useText;
+  $("guide-math").hidden = useText;
+  $("guide-text").hidden = !useText;
   $("toggle-input").textContent = useText ? "数式エディタで入力する" : "テキストで入力する";
+  updatePreview();
+  (useText ? $("answer-text") : $("answer-math")).focus();
+}
+
+// テキスト入力のとき、入力中の式がどう読み取られるかを表示する
+let previewTimer = null;
+function updatePreview() {
+  clearTimeout(previewTimer);
+  const text = $("answer-text").value;
+  if (!useText || !text.trim()) {
+    $("preview").hidden = true;
+    return;
+  }
+  previewTimer = setTimeout(async () => {
+    const el = $("preview");
+    try {
+      const r = await api(`/api/preview?text=${encodeURIComponent(text)}`);
+      el.textContent = "";
+      el.append("読み取った式: ");
+      const span = document.createElement("span");
+      setLatex(span, r.latex);
+      el.append(span);
+    } catch (e) {
+      el.textContent = `読み取れません: ${e.message}`;
+    }
+    el.hidden = false;
+  }, 300);
+}
+
+// 入力方法ガイドの開閉を覚えておく（使えない環境では毎回開いた状態）
+function setupGuide() {
+  const guide = $("guide");
+  try {
+    if (localStorage.getItem("guideOpen") === "0") guide.open = false;
+  } catch {}
+  guide.addEventListener("toggle", () => {
+    try {
+      localStorage.setItem("guideOpen", guide.open ? "1" : "0");
+    } catch {}
+  });
+  renderMath(guide);
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
@@ -177,6 +221,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   $("submit").addEventListener("click", submit);
   $("next").addEventListener("click", newProblem);
   $("toggle-input").addEventListener("click", toggleInput);
+  $("answer-text").addEventListener("input", updatePreview);
+  setupGuide();
   for (const id of ["answer-math", "answer-text"]) {
     $(id).addEventListener("keydown", (e) => {
       if (e.key === "Enter") {

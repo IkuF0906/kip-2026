@@ -82,3 +82,8 @@ def test_stats(client):
     labels = {m["label"] for m in power["mistakes"]}
     assert "未分類の誤り" in labels
     assert any("前に出し忘れ" in label for label in labels)
+
+
+def test_preview(client):
+    assert client.get("/api/preview", params={"text": "2xsin(x)"}).json()["latex"] == r"2 x \sin{\left(x \right)}"
+    assert client.get("/api/preview", params={"text": "(x+"}).status_code == 400

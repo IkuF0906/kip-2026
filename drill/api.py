@@ -63,6 +63,14 @@ def create_app(db_path: str, now=datetime.now) -> FastAPI:
         state = scheduler.pick_next(store.states(list(PROBLEM_TYPES)), now())
         return _problem_json(_new_problem(state.type_id))
 
+    @app.get("/api/preview")
+    def preview(text: str):
+        """テキスト入力の解答がどの式として読み取られるかを返す（答え合わせ前の確認用）。"""
+        try:
+            return {"latex": to_latex(parse_answer(text))}
+        except AnswerParseError as exc:
+            raise HTTPException(400, str(exc))
+
     @app.post("/api/answer")
     def answer(req: AnswerRequest):
         try:

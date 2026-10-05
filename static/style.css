@@ -135,3 +135,22 @@ th { color: var(--muted); font-weight: 600; font-size: 0.9rem; }
 td ul { margin: 0; padding-left: 18px; }
 .meter { display: inline-block; width: 60px; height: 8px; border-radius: 4px; background: var(--border); vertical-align: middle; margin-right: 6px; overflow: hidden; }
 .meter span { display: block; height: 100%; background: var(--accent); }
+
+.preview { color: var(--muted); margin: 8px 0 0; overflow-x: auto; }
+
+.guide { margin: 16px 0 0; }
+.guide table { margin-top: 8px; font-size: 0.9rem; }
+.guide th, .guide td { padding: 6px 10px; }
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85em;
+  text-align: center;
+}
+code { font-family: ui-monospace, Consolas, monospace; background: var(--bg); padding: 0 4px; border-radius: 4px; }
