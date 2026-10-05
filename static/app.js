@@ -201,7 +201,7 @@ function updatePreview() {
 }
 
 // 数式の入力ボタン。latex は数式エディタ用（#? は空欄、#0 は選択中の部分、#@ は直前の項）、
-// text はテキスト入力用で、[カーソルの前に入れる文字, 後に入れる文字]
+// text はテキスト入力用で、[カーソルの前に入れる文字, 後に入れる文字]。null は区切り線、"row" は改行
 const MATH_BUTTONS = [
   { label: "x", title: "変数 x", latex: "x", text: ["x", ""] },
   { label: "\\square^{n}", title: "累乗（直前の項を底にする）", latex: "#@^{#?}", text: ["^(", ")"] },
@@ -218,6 +218,11 @@ const MATH_BUTTONS = [
   null,
   { label: "⌫", title: "1文字消す", action: "backspace" },
   { label: "クリア", title: "全部消す", action: "clear" },
+  "row",
+  ..."0123456789".split("").map((d) => ({ label: d, title: d, latex: d, text: [d, ""] })),
+  null,
+  { label: "+", title: "足し算", latex: "+", text: ["+", ""] },
+  { label: "-", title: "引き算・マイナス", latex: "-", text: ["-", ""] },
 ];
 
 function insertText(before, after) {
@@ -262,9 +267,9 @@ function pressMathButton(b) {
 function setupMathButtons() {
   const bar = $("math-buttons");
   for (const b of MATH_BUTTONS) {
-    if (!b) {
+    if (!b || b === "row") {
       const sep = document.createElement("span");
-      sep.className = "sep";
+      sep.className = b ? "row-break" : "sep";
       bar.appendChild(sep);
       continue;
     }
