@@ -218,6 +218,8 @@ const MATH_BUTTONS = [
   { label: "e^{\\square}", title: "指数関数 e", latex: "e^{#?}", text: ["e^(", ")"] },
   { label: "\\ln", title: "自然対数", latex: "\\ln\\left(#0\\right)", text: ["ln(", ")"] },
   null,
+  { label: "←", title: "カーソルを左へ", action: "left" },
+  { label: "→", title: "カーソルを右へ（指数や分数から抜けるときにも使う）", action: "right" },
   { label: "⌫", title: "1文字消す", action: "backspace" },
   { label: "クリア", title: "全部消す", action: "clear" },
   "row",
@@ -253,6 +255,14 @@ function pressMathButton(b) {
   if (b.action === "clear") {
     field.value = "";
     if (isText) updatePreview();
+  } else if (b.action === "left" || b.action === "right") {
+    const step = b.action === "left" ? -1 : 1;
+    if (isText) {
+      const pos = Math.min(Math.max((field.selectionStart ?? field.value.length) + step, 0), field.value.length);
+      field.setSelectionRange(pos, pos);
+    } else {
+      field.executeCommand(step < 0 ? "moveToPreviousChar" : "moveToNextChar");
+    }
   } else if (b.action === "backspace") {
     if (isText) {
       const pos = field.selectionStart ?? field.value.length;
