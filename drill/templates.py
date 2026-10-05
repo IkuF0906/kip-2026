@@ -90,6 +90,11 @@ MISCONCEPTIONS = {
             r"外側を微分したあと、内側 $h(x)$ の微分を掛ける必要があります。",
         ),
         Misconception(
+            "sqrt_no_half",
+            r"$\sqrt{x}$ の微分で $\frac{1}{2}$ を忘れた",
+            r"$\sqrt{x} = x^{\frac{1}{2}}$ なので $(\sqrt{x})' = \frac{1}{2} x^{-\frac{1}{2}} = \frac{1}{2\sqrt{x}}$ です。",
+        ),
+        Misconception(
             "cos_sign",
             "cos の微分の符号ミス",
             r"$(\cos x)' = -\sin x$ です。マイナスが付きます。",
@@ -242,9 +247,14 @@ def _build_chain(rng):
     k = rng.randint(1, 3)
     if outer in ("log", "sqrt"):
         # 定義域が正になるよう係数も正にする
-        inner = rng.randint(1, 5) * X**k + rng.randint(1, 5)
+        a = rng.randint(1, 5)
     else:
-        inner = _nonzero(rng, -4, 4) * X**k + _nonzero(rng, -5, 5)
+        a = _nonzero(rng, -4, 4)
+    if k == 1 and a == 1:
+        # 内側が x + b だと内側の微分が 1 になり、「内側の微分を掛け忘れ」が診断できない
+        a = 2
+    b = rng.randint(1, 5) if outer in ("log", "sqrt") else _nonzero(rng, -5, 5)
+    inner = a * X**k + b
     d_inner = sp.diff(inner, X)
 
     if outer == "pow":
@@ -257,6 +267,12 @@ def _build_chain(rng):
     f = g.subs(_t, inner)
     outer_d = dg.subs(_t, inner)
     wrongs = [("chain_no_inner", outer_d)]
+    if outer == "pow":
+        wrongs.append(("power_no_decrement", n * inner**n * d_inner))
+    if outer == "sqrt":
+        wrongs.append(("sqrt_no_half", d_inner / sp.sqrt(inner)))
+    if outer == "sin":
+        wrongs.append(("trig_sign_swapped", -sp.cos(inner) * d_inner))
     if outer == "cos":
         wrongs.append(("cos_sign", sp.sin(inner) * d_inner))
     if outer == "exp":
@@ -383,11 +399,13 @@ def tidy(expr: sp.Expr) -> sp.Expr:
 def generate(type_id: str, seed: int) -> Problem:
     ptype = PROBLEM_TYPES[type_id]
     rng = random.Random(f"{type_id}-{seed}")
-    # 係数の組み合わせによっては f が定数になる（例: (2x+4)/(x+2)）ので作り直す
+    # 係数の組み合わせによっては f が定数になったり（例: (2x+4)/(x+2)）、
+    # 誤答が全て正解と一致して診断できなくなったりするので作り直す
     for _ in range(10):
         f, wrongs, steps, *display = ptype.build(rng)
         answer = sp.diff(f, X)
-        if not equivalent(answer, sp.Integer(0)):
+        wrongs = _drop_collisions(answer, wrongs)
+        if wrongs and not equivalent(answer, sp.Integer(0)):
             break
     steps = steps + [rf"$f'(x) = {to_latex(tidy(answer))}$"]
     return Problem(
@@ -395,7 +413,7 @@ def generate(type_id: str, seed: int) -> Problem:
         type_id=type_id,
         f=f,
         answer=answer,
-        wrongs=_drop_collisions(answer, wrongs),
+        wrongs=wrongs,
         latex=display[0] if display else to_latex(f),
         steps=steps,
     )
