@@ -1,7 +1,7 @@
 import pytest
 import sympy as sp
 
-from drill.checker import X, AnswerParseError, equivalent, parse_answer
+from drill.checker import C, X, AnswerParseError, equivalent, parse_answer
 
 
 @pytest.mark.parametrize(
@@ -17,13 +17,26 @@ from drill.checker import X, AnswerParseError, equivalent, parse_answer
         ("2^x ln 2", 2**X * sp.log(2)),
         ("3**x", 3**X),
         ("2·x − 1", 2 * X - 1),
+        # 不定積分・定積分・極限・接線で使う形
+        ("(x^2)/(2)+C", X**2 / 2 + C),
+        ("2pi", 2 * sp.pi),
+        ("(sqrt(3))/(2)", sp.sqrt(3) / 2),
+        ("4ln 2", 4 * sp.log(2)),
+        ("e-1", sp.E - 1),
+        ("y = 2x + 1", 2 * X + 1),
+        ("F(x)=x^2", X**2),
     ],
 )
 def test_parse_answer(text, expected):
     assert sp.simplify(parse_answer(text) - expected) == 0
 
 
-@pytest.mark.parametrize("text", ["", "   ", "(x+1", "y+1", "open(1)", "__import__", "x; 1", "'a'"])
+@pytest.mark.parametrize("text, expected", [("oo", sp.oo), ("-oo", -sp.oo), ("∞", sp.oo), ("inf", sp.oo)])
+def test_parse_infinity(text, expected):
+    assert parse_answer(text) == expected
+
+
+@pytest.mark.parametrize("text", ["", "   ", "(x+1", "y+1", "open(1)", "__import__", "x; 1", "'a'", "y ="])
 def test_parse_answer_rejects(text):
     with pytest.raises(AnswerParseError):
         parse_answer(text)
@@ -33,8 +46,16 @@ def test_equivalent_different_forms():
     assert equivalent(sp.sin(2 * X), 2 * sp.sin(X) * sp.cos(X))
     assert equivalent(sp.log(X**2), 2 * sp.log(X))
     assert equivalent((X**2 - 1) / (X - 1), X + 1)
+    assert equivalent(sp.log(16), 4 * sp.log(2))
+    assert equivalent(sp.Float(1.5), sp.Rational(3, 2))
 
 
 def test_not_equivalent():
     assert not equivalent(X**2, X**2 + 1e-3)
     assert not equivalent(sp.sin(X), sp.cos(X))
+
+
+def test_equivalent_infinity():
+    assert equivalent(sp.oo, sp.oo)
+    assert not equivalent(sp.oo, -sp.oo)
+    assert not equivalent(sp.oo, sp.Integer(10**9))

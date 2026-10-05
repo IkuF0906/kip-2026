@@ -12,9 +12,14 @@ from sympy.parsing.sympy_parser import (
 
 # 問題・解答で共通に使う変数。正の実数にしておくと ln や √ の簡約が素直になる
 X = sp.Symbol("x", positive=True)
+# 不定積分の積分定数
+C = sp.Symbol("C")
 
 LOCAL_NAMES = {
     "x": X,
+    "C": C,
+    "oo": sp.oo,
+    "inf": sp.oo,
     "e": sp.E,
     "pi": sp.pi,
     "sin": sp.sin,
@@ -40,6 +45,7 @@ _UNICODE_REPLACEMENTS = {
     "÷": "/",
     "π": "pi",
     "√": "sqrt",
+    "∞": "oo",
 }
 _TRANSFORMATIONS = standard_transformations + (
     implicit_multiplication_application,
@@ -79,6 +85,8 @@ def normalize(text: str) -> str:
 
 def parse_answer(text: str) -> sp.Expr:
     text = (text or "").strip()
+    # 「y = 2x + 1」「F(x) = ...」のように左辺ごと書かれたときは右辺だけを使う
+    text = text.rpartition("=")[2].strip()
     if not text:
         raise AnswerParseError("解答が空です")
     normalized = normalize(text)
@@ -86,7 +94,7 @@ def parse_answer(text: str) -> sp.Expr:
         expr = parse_expr(normalized, local_dict=dict(LOCAL_NAMES), transformations=_TRANSFORMATIONS)
     except Exception as exc:
         raise AnswerParseError("数式として読み取れませんでした。括弧や演算子を確認してください") from exc
-    if not isinstance(expr, sp.Expr) or (expr.free_symbols - {X}):
+    if not isinstance(expr, sp.Expr) or (expr.free_symbols - {X, C}):
         raise AnswerParseError("x の式として読み取れませんでした")
     return expr
 
@@ -107,6 +115,9 @@ def equivalent(a: sp.Expr, b: sp.Expr) -> bool:
     数値代入で判定し、評価できる点が足りないときだけ記号的な簡約に頼る
     （simplify は遅く、等しくても 0 にならないことがあるため）。
     """
+    # 極限の答えの ∞ は数値で比べられないので、そのまま比べる
+    if a.has(sp.oo, -sp.oo, sp.zoo) or b.has(sp.oo, -sp.oo, sp.zoo):
+        return a == b
     checked = 0
     for p in _SAMPLE_POINTS:
         va, vb = _value(a, p), _value(b, p)
