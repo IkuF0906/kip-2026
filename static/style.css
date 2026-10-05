@@ -175,13 +175,20 @@ kbd {
 code { font-family: ui-monospace, Consolas, monospace; background: var(--bg); padding: 0 4px; border-radius: 4px; }
 
 /* 電卓風の入力キー */
+/* キーパッドと、その下の「テキストで入力する」「入力方法」を同じ幅で中央にそろえる */
+.keypad { max-width: 600px; margin: 16px auto 0; }
 .math-buttons {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  /* 左2列（関数）と右4列（数字・演算子）の間に細い空き列を挟んでまとまりを分ける */
+  grid-template-columns: 1fr 1fr 4px 1fr 1fr 1fr 1fr;
   gap: 8px;
-  max-width: 600px;
-  margin-top: 12px;
 }
+.math-buttons .key:nth-child(6n + 1) { grid-column: 1; }
+.math-buttons .key:nth-child(6n + 2) { grid-column: 2; }
+.math-buttons .key:nth-child(6n + 3) { grid-column: 4; }
+.math-buttons .key:nth-child(6n + 4) { grid-column: 5; }
+.math-buttons .key:nth-child(6n + 5) { grid-column: 6; }
+.math-buttons .key:nth-child(6n) { grid-column: 7; }
 .key {
   height: 44px;
   padding: 0 6px;
