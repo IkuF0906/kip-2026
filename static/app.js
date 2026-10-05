@@ -50,6 +50,9 @@ async function newProblem() {
   $("preview").hidden = true;
   $("result").hidden = true;
   $("problem-card").hidden = false;
+  $("note").hidden = false;
+  resetNote();
+  activeField = null;
   $("submit").disabled = false;
   (useText ? $("answer-text") : $("answer-math")).focus();
 }
@@ -225,6 +228,14 @@ const MATH_BUTTONS = [
   { label: "-", title: "引き算・マイナス", latex: "-", text: ["-", ""] },
 ];
 
+// 入力ボタンの入力先。解答欄か、途中式メモの行のうち最後にフォーカスしたもの
+let activeField = null;
+
+function targetField() {
+  if (activeField && activeField.isConnected && !activeField.hidden) return activeField;
+  return useText ? $("answer-text") : $("answer-math");
+}
+
 function insertText(before, after) {
   const input = $("answer-text");
   const start = input.selectionStart ?? input.value.length;
@@ -238,30 +249,29 @@ function insertText(before, after) {
 }
 
 function pressMathButton(b) {
-  const mf = $("answer-math");
-  const input = $("answer-text");
+  const field = targetField();
+  const isText = field.tagName === "INPUT";
   if (b.action === "clear") {
-    mf.value = "";
-    input.value = "";
-    updatePreview();
+    field.value = "";
+    if (isText) updatePreview();
   } else if (b.action === "backspace") {
-    if (useText) {
-      const pos = input.selectionStart ?? input.value.length;
+    if (isText) {
+      const pos = field.selectionStart ?? field.value.length;
       if (pos > 0) {
-        input.value = input.value.slice(0, pos - 1) + input.value.slice(pos);
-        input.setSelectionRange(pos - 1, pos - 1);
+        field.value = field.value.slice(0, pos - 1) + field.value.slice(pos);
+        field.setSelectionRange(pos - 1, pos - 1);
       }
       updatePreview();
     } else {
-      mf.executeCommand("deleteBackward");
+      field.executeCommand("deleteBackward");
     }
-  } else if (useText) {
+  } else if (isText) {
     insertText(...b.text);
     return;
   } else {
-    mf.insert(b.latex, { format: "latex", selectionMode: "placeholder" });
+    field.insert(b.latex, { format: "latex", selectionMode: "placeholder" });
   }
-  (useText ? input : mf).focus();
+  field.focus();
 }
 
 function setupMathButtons() {
@@ -309,6 +319,12 @@ window.addEventListener("DOMContentLoaded", async () => {
   $("answer-text").addEventListener("input", updatePreview);
   setupGuide();
   setupMathButtons();
+  setupNote();
+  // 入力ボタンの入力先を、最後にフォーカスした数式欄にする
+  document.addEventListener("focusin", (e) => {
+    const el = e.target;
+    if (el.tagName === "MATH-FIELD" || el.id === "answer-text") activeField = el;
+  });
   for (const id of ["answer-math", "answer-text"]) {
     $(id).addEventListener("keydown", (e) => {
       if (e.key === "Enter") {

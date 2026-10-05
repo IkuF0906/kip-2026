@@ -168,3 +168,39 @@ code { font-family: ui-monospace, Consolas, monospace; background: var(--bg); pa
 .math-buttons button:hover { border-color: var(--accent); }
 .math-buttons .sep { width: 1px; background: var(--border); margin: 4px 2px; }
 .math-buttons .row-break { flex-basis: 100%; height: 0; }
+
+.note-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.note-head h2 { font-size: 1.1rem; margin: 0; }
+.segmented { display: inline-flex; }
+.segmented button { border-radius: 0; }
+.segmented button:first-child { border-radius: 8px 0 0 8px; }
+.segmented button:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; }
+.note-tab.active, .note-tool.active { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+
+.note-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.note-tools .spacer { flex: 1; }
+
+#note-canvas {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  touch-action: none; /* タッチで描くときにページがスクロールしないようにする */
+  cursor: crosshair;
+  background-color: var(--surface);
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 31px, var(--border) 31px, var(--border) 32px);
+}
+
+.memo-line { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.memo-line math-field {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+.memo-line button { white-space: nowrap; }
+.note .hint { margin: 8px 0 0; font-size: 0.85rem; }
