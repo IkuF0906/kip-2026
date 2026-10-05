@@ -52,6 +52,10 @@ def main() -> None:
             server.wait()
 
 
+def text_input_on(page) -> bool:
+    return page.evaluate("useText")
+
+
 def take_screenshots(out: Path, url: str) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="chrome")
@@ -120,6 +124,35 @@ def take_screenshots(out: Path, url: str) -> None:
         page.wait_for_function("id => current.problem_id !== id && current.type_id === 'app_extremum'", arg=before)
         page.wait_for_timeout(300)
         page.locator("#problem-card .answer-row").screenshot(path=out / "7_extremum_answer_row.png")
+
+        # 文章題（式の欄がなく、問題文だけが出る）
+        page.select_option("#unit-select", "probability")
+        page.wait_for_function("() => current.unit_id === 'probability'")
+        before = page.evaluate("current.problem_id")
+        page.select_option("#type-select", "prob_conditional")
+        page.wait_for_function("id => current.problem_id !== id && current.type_id === 'prob_conditional'", arg=before)
+        page.wait_for_timeout(300)
+        card = page.locator("#problem-card").bounding_box()
+        page.screenshot(path=out / "9_word_problem.png", clip={"x": card["x"], "y": card["y"], "width": card["width"], "height": 200})
+
+        # 数列：入力キーの x が n に変わり、n の式で答え合わせできる
+        page.select_option("#unit-select", "sequence")
+        page.wait_for_function("() => current.unit_id === 'sequence'")
+        before = page.evaluate("current.problem_id")
+        page.select_option("#type-select", "seq_recur")
+        page.wait_for_function("id => current.problem_id !== id && current.type_id === 'seq_recur'", arg=before)
+        page.locator("#math-buttons").screenshot(path=out / "10_sequence_keys.png")
+        page.click("#math-buttons button[title='変数 n']")
+        if not text_input_on(page):
+            page.click("#toggle-input")
+        answer = from_id(page.evaluate("current.problem_id")).answer
+        page.fill("#answer-text", str(answer).replace("**", "^"))
+        page.click("#submit")
+        page.wait_for_selector("#result:not([hidden])")
+        page.wait_for_timeout(300)
+        page.screenshot(path=out / "10_sequence_result.png", full_page=True)
+        if text_input_on(page):
+            page.click("#toggle-input")
 
         # 不定積分で C を付けずに正解したときの注意
         page.select_option("#unit-select", "integral")
