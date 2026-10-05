@@ -16,6 +16,8 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+from drill.templates import from_id
+
 PORT = 8765
 
 
@@ -97,6 +99,41 @@ def take_screenshots(out: Path, url: str) -> None:
         page.wait_for_timeout(300)
         page.screenshot(path=out / "5_guide.png")
         page.keyboard.press("Escape")
+
+        # 単元ごとの問題（問題文・問題・解答欄の表示）
+        page.click('.tab[data-tab="practice"]')
+        units = page.eval_on_selector_all("#unit-select option", "os => os.map(o => o.value).filter(v => v)")
+        for i, unit in enumerate(units, start=1):
+            page.select_option("#unit-select", unit)
+            page.wait_for_function("u => typeof current !== 'undefined' && current && current.unit_id === u", arg=unit)
+            page.wait_for_timeout(300)
+            card = page.locator("#problem-card").bounding_box()
+            # ノートを除いた上部（問題）と下部（解答欄）を縦に並べたいので、カード全体を撮る
+            page.screenshot(path=out / f"7_unit{i}_{unit}.png", clip={"x": card["x"], "y": card["y"], "width": card["width"], "height": 200})
+            page.locator("#answer-prefix").screenshot(path=out / f"7_unit{i}_{unit}_prefix.png")
+
+        # 極値の問題（解答欄の左に「極大値 =」などの日本語が出る）
+        page.select_option("#unit-select", "application")
+        page.wait_for_function("() => current.unit_id === 'application'")
+        before = page.evaluate("current.problem_id")
+        page.select_option("#type-select", "app_extremum")
+        page.wait_for_function("id => current.problem_id !== id && current.type_id === 'app_extremum'", arg=before)
+        page.wait_for_timeout(300)
+        page.locator("#problem-card .answer-row").screenshot(path=out / "7_extremum_answer_row.png")
+
+        # 不定積分で C を付けずに正解したときの注意
+        page.select_option("#unit-select", "integral")
+        page.wait_for_function("() => current.unit_id === 'integral'")
+        before = page.evaluate("current.problem_id")
+        page.select_option("#type-select", "int_power")
+        # 型を選ぶと新しい問題が出るので、問題が切り替わるのを待つ
+        page.wait_for_function("id => current.problem_id !== id && current.type_id === 'int_power'", arg=before)
+        page.click("#toggle-input")
+        answer = from_id(page.evaluate("current.problem_id")).answer  # C を付けない正解
+        page.fill("#answer-text", str(answer))
+        page.click("#submit")
+        page.wait_for_selector("#result:not([hidden])")
+        page.screenshot(path=out / "8_integral_result.png", full_page=True)
 
         page.click('.tab[data-tab="stats"]')
         page.wait_for_selector("#stats-body tr")

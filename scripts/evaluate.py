@@ -10,7 +10,7 @@ import time
 from collections import Counter
 
 from drill.diagnosis import diagnose
-from drill.templates import MISCONCEPTIONS, PROBLEM_TYPES, generate
+from drill.templates import MISCONCEPTIONS, PROBLEM_TYPES, UNITS, generate
 
 
 def evaluate_type(type_id: str, n: int) -> dict:
@@ -48,14 +48,14 @@ def evaluate_type(type_id: str, n: int) -> dict:
 def main() -> None:
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 200
     print(f"各型 {n} 問（シード 0〜{n - 1}）で評価\n")
-    print("| 型 | 正解の判定 | 誤答の診断 | 診断できる誤答数（平均/最小） | 生成 (ms) | 判定 (ms) |")
-    print("|---|---|---|---|---|---|")
+    print("| 単元 | 型 | 正解の判定 | 誤答の診断 | 診断できる誤答数（平均/最小） | 生成 (ms) | 判定 (ms) |")
+    print("|---|---|---|---|---|---|---|")
     all_rules = Counter()
-    for tid in PROBLEM_TYPES:
+    for tid, t in PROBLEM_TYPES.items():
         r = evaluate_type(tid, n)
         all_rules.update(r["rules"])
         print(
-            f"| {r['type']} | {r['correct_rate']:.0%} | {r['diag_rate']:.0%} "
+            f"| {UNITS[t.unit].name} | {r['type']} | {r['correct_rate']:.0%} | {r['diag_rate']:.0%} "
             f"| {r['avg_wrongs']:.2f} / {r['min_wrongs']} | {r['gen_ms']:.1f} | {r['diag_ms']:.1f} |"
         )
     print("\n誤答パターンごとの、診断候補として使えた問題数（全型の合計）\n")
