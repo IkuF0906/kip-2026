@@ -138,8 +138,7 @@ td ul { margin: 0; padding-left: 18px; }
 
 .preview { color: var(--muted); margin: 8px 0 0; overflow-x: auto; }
 
-.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.card-head button { font-size: 0.9rem; padding: 4px 12px; }
+.guide-button { margin-left: auto; font-size: 0.9rem; }
 
 dialog#guide {
   width: min(720px, calc(100vw - 32px));
@@ -222,3 +221,5 @@ code { font-family: ui-monospace, Consolas, monospace; background: var(--bg); pa
 .note .hint { margin: 8px 0 0; font-size: 0.85rem; }
 
 .card-section { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 16px; }
+/* 手書きと切り替えたときに高さが大きく変わらないようにする */
+#note-memo { min-height: 560px; }

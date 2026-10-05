@@ -9,7 +9,7 @@ const note = {
 
 const PEN_WIDTH = 2.5;
 const ERASER_WIDTH = 22;
-const CANVAS_HEIGHT = 360;
+const CANVAS_HEIGHT = 520;
 
 function inkColor() {
   return getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#000";
