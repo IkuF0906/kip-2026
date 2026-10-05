@@ -160,6 +160,9 @@ dialog#guide::backdrop { background: rgb(0 0 0 / 0.4); }
 .dialog-head button { border: none; font-size: 1.3rem; line-height: 1; padding: 4px 8px; }
 dialog#guide table { font-size: 0.9rem; }
 dialog#guide th, dialog#guide td { padding: 6px 10px; }
+/* 項目名と表示例は折り返さない（説明の列だけ折り返す） */
+dialog#guide th:first-child, dialog#guide td:first-child,
+dialog#guide th:last-child, dialog#guide td:last-child { white-space: nowrap; }
 kbd {
   display: inline-block;
   min-width: 1.6em;
