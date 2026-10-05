@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>微分ドリル</title>
+  <title>微積分ドリル</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%232f6fde%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2218%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22serif%22 font-style=%22italic%22%3Ef%E2%80%B2%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
@@ -15,7 +15,7 @@
 </head>
 <body>
   <header>
-    <h1>微分ドリル</h1>
+    <h1>微積分ドリル</h1>
     <nav>
       <button class="tab active" data-tab="practice">練習</button>
       <button class="tab" data-tab="review">復習</button>
@@ -25,17 +25,20 @@
 
   <main>
     <section id="drill">
-      <div class="toolbar" id="practice-toolbar">
-        <label>問題の型
+      <div class="toolbar">
+        <label>単元
+          <select id="unit-select"><option value="">すべて</option></select>
+        </label>
+        <label id="type-label">問題の型
           <select id="type-select"><option value="">ランダム</option></select>
         </label>
         <button id="new-problem">新しい問題</button>
       </div>
-      <p class="hint" id="review-hint" hidden>期限が来た型・苦手な型から自動で出題します。</p>
+      <p class="hint" id="review-hint" hidden>選んだ単元の中から、期限が来た型・苦手な型を自動で出題します。</p>
 
       <div class="card" id="problem-card" hidden>
         <div class="problem-type" id="problem-type"></div>
-        <p>次の関数を微分しなさい。</p>
+        <p id="prompt"></p>
         <div class="problem" id="problem"></div>
 
         <div class="note card-section" id="note">
@@ -71,7 +74,7 @@
 
         <div class="card-section">
           <div class="answer-row">
-            <span class="prefix">f'(x) =</span>
+            <span class="prefix" id="answer-prefix"></span>
             <math-field id="answer-math"></math-field>
             <input id="answer-text" type="text" placeholder="例: 3x^2 + 2sin(x)" hidden>
           </div>
@@ -96,6 +99,9 @@
         <div class="diagnosis" id="diagnosis" hidden>
           <h3 id="diag-label"></h3>
           <p id="diag-explanation"></p>
+        </div>
+        <div class="diagnosis" id="result-note" hidden>
+          <p id="result-note-text"></p>
         </div>
         <details id="steps-box">
           <summary>解き方</summary>

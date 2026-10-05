@@ -263,3 +263,5 @@ code { font-family: ui-monospace, Consolas, monospace; background: var(--bg); pa
   box-shadow: 0 0 0 1px var(--surface), inset 0 0 0 1px var(--surface);
   pointer-events: none;
 }
+
+#stats .unit-row th { background: var(--bg); color: var(--text); font-size: 0.95rem; padding-top: 14px; }

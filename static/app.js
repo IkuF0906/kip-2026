@@ -27,23 +27,75 @@ async function api(path, options) {
   return body;
 }
 
-async function loadTypes() {
-  const types = await api("/api/types");
-  const select = $("type-select");
-  for (const t of types) {
-    const opt = document.createElement("option");
-    opt.value = t.id;
-    opt.textContent = t.name;
-    select.appendChild(opt);
+let units = []; // [{id, name}]
+
+// 選んだ単元を覚えておく（使えない環境では毎回「微分」から始める）
+function savedUnit() {
+  try {
+    return localStorage.getItem("unit") ?? "derivative";
+  } catch {
+    return "derivative";
   }
 }
 
+async function loadUnits() {
+  units = await api("/api/units");
+  const select = $("unit-select");
+  for (const u of units) {
+    const opt = document.createElement("option");
+    opt.value = u.id;
+    opt.textContent = u.name;
+    select.appendChild(opt);
+  }
+  const saved = savedUnit();
+  select.value = units.some((u) => u.id === saved) || saved === "" ? saved : "derivative";
+}
+
+// 問題の型の選択肢を、選んだ単元のものにする。「すべて」のときは単元ごとにまとめて並べる
+async function loadTypes() {
+  const unit = $("unit-select").value;
+  const types = await api(`/api/types${unit ? `?unit=${unit}` : ""}`);
+  const select = $("type-select");
+  select.length = 1; // 先頭の「ランダム」だけ残す
+  const groups = new Map();
+  for (const t of types) {
+    let parent = select;
+    if (!unit) {
+      if (!groups.has(t.unit)) {
+        const group = document.createElement("optgroup");
+        group.label = units.find((u) => u.id === t.unit).name;
+        select.appendChild(group);
+        groups.set(t.unit, group);
+      }
+      parent = groups.get(t.unit);
+    }
+    const opt = document.createElement("option");
+    opt.value = t.id;
+    opt.textContent = t.name;
+    parent.appendChild(opt);
+  }
+}
+
+async function changeUnit() {
+  try {
+    localStorage.setItem("unit", $("unit-select").value);
+  } catch {}
+  await loadTypes();
+  newProblem();
+}
+
 async function newProblem() {
+  const unit = $("unit-select").value;
   const type = $("type-select").value;
-  const path = mode === "review" ? "/api/review" : `/api/problem${type ? `?type=${type}` : ""}`;
+  let path;
+  if (mode === "review") path = `/api/review${unit ? `?unit=${unit}` : ""}`;
+  else if (type) path = `/api/problem?type=${type}`;
+  else path = `/api/problem${unit ? `?unit=${unit}` : ""}`;
   current = await api(path);
-  $("problem-type").textContent = current.type_name;
-  setLatex($("problem"), `f(x) = ${current.latex}`);
+  setMathText($("problem-type"), `${current.unit_name} ／ ${current.type_name}`);
+  setMathText($("prompt"), current.prompt);
+  setLatex($("problem"), current.latex);
+  setLatex($("answer-prefix"), current.answer_prefix);
   $("answer-math").value = "";
   $("answer-text").value = "";
   $("error").hidden = true;
@@ -103,6 +155,8 @@ function showResult(r) {
       $("diag-explanation").textContent = "下の「解き方」で、どこで答えがずれたか確認しましょう。";
     }
   }
+  $("result-note").hidden = !r.note;
+  if (r.note) setMathText($("result-note-text"), r.note);
 
   const steps = $("steps");
   steps.innerHTML = "";
@@ -130,7 +184,17 @@ async function loadStats() {
   const rows = await api("/api/stats");
   const body = $("stats-body");
   body.innerHTML = "";
+  let lastUnit = null;
   for (const s of rows) {
+    // 単元が変わるところに見出しの行を入れる
+    if (s.unit_id !== lastUnit) {
+      lastUnit = s.unit_id;
+      const head = document.createElement("tr");
+      head.className = "unit-row";
+      head.innerHTML = `<th colspan="6"></th>`;
+      head.cells[0].textContent = s.unit_name;
+      body.appendChild(head);
+    }
     const tr = document.createElement("tr");
     const pct = Math.round(s.accuracy * 100);
     const mistakes = s.mistakes.length
@@ -161,7 +225,7 @@ function switchTab(tab) {
     return;
   }
   mode = tab;
-  $("practice-toolbar").hidden = tab !== "practice";
+  $("type-label").hidden = tab !== "practice";
   $("review-hint").hidden = tab !== "review";
   newProblem();
 }
@@ -202,7 +266,7 @@ function updatePreview() {
   }, 300);
 }
 
-// 数式の入力ボタン（電卓風の 6 列 × 5 行）。
+// 数式の入力ボタン（電卓風の 6 列。5 行＋積分・極限用の記号の行）。
 // latex は数式エディタ用（#? は空欄、#0 は選択中の部分、#@ は直前の項）、
 // text はテキスト入力用で [カーソルの前に入れる文字, 後に入れる文字]。
 // kind は見た目の種類（fn: 関数・編集、num: 数字、op: 演算子、submit: 答え合わせ）。
@@ -240,6 +304,12 @@ const MATH_BUTTONS = [
   key(".", "小数点", ".", [".", ""], "num", false),
   act("答え合わせ", "答え合わせ（Enter）", "submit", "submit"),
   key("+", "足し算", "+", ["+", ""], "op", false),
+
+  // 積分・極限で使う記号（左2列と、数字の列の左2つに並ぶ）
+  key("\\pi", "円周率", "\\pi", ["pi", ""]),
+  key("e", "ネイピア数 e", "e", ["e", ""]),
+  key("\\infty", "無限大（極限）", "\\infty", ["oo", ""], "num"),
+  key("C", "積分定数", "C", ["C", ""], "num"),
 ];
 
 // 入力ボタンの入力先。解答欄か、途中式メモの行のうち最後にフォーカスしたもの
@@ -335,6 +405,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.tab)));
   $("new-problem").addEventListener("click", newProblem);
   $("type-select").addEventListener("change", newProblem);
+  $("unit-select").addEventListener("change", changeUnit);
   $("next").addEventListener("click", newProblem);
   $("toggle-input").addEventListener("click", toggleInput);
   $("answer-text").addEventListener("input", updatePreview);
@@ -354,6 +425,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
     });
   }
+  await loadUnits();
   await loadTypes();
   newProblem();
 });

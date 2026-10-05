@@ -25,7 +25,7 @@ def answer(client, problem_id, text):
 def test_index_is_served(client):
     res = client.get("/")
     assert res.status_code == 200
-    assert "微分ドリル" in res.text
+    assert "微積分ドリル" in res.text
 
 
 def test_problem_for_type(client):
@@ -82,6 +82,40 @@ def test_stats(client):
     labels = {m["label"] for m in power["mistakes"]}
     assert "未分類の誤り" in labels
     assert any("前に出し忘れ" in label for label in labels)
+
+
+def test_units_and_types(client):
+    units = [u["id"] for u in client.get("/api/units").json()]
+    assert units == ["derivative", "integral", "definite", "limit", "application"]
+    types = client.get("/api/types", params={"unit": "limit"}).json()
+    assert types and all(t["unit"] == "limit" for t in types)
+    assert client.get("/api/types", params={"unit": "nope"}).status_code == 404
+
+
+def test_problem_for_unit(client):
+    for _ in range(5):
+        body = client.get("/api/problem", params={"unit": "definite"}).json()
+        assert body["unit_id"] == "definite"
+        assert body["prompt"] and body["answer_prefix"]
+
+
+def test_review_within_unit(client, clock):
+    answer(client, "power-0", "0")  # 微分で不正解 → すぐ復習
+    clock["now"] = NOW + timedelta(minutes=1)
+    assert client.get("/api/review").json()["type_id"] == "power"
+    assert client.get("/api/review", params={"unit": "integral"}).json()["unit_id"] == "integral"
+
+
+def test_integral_answer_with_note(client):
+    body = answer(client, "int_power-0", "x^6/2 + 4x^5/5 + 9x").json()
+    assert body["correct"] is True
+    assert "C" in body["note"]
+    assert body["answer_latex"].endswith("+ C")
+
+
+def test_stats_has_unit(client):
+    s = next(s for s in client.get("/api/stats").json() if s["type_id"] == "lim_e")
+    assert (s["unit_id"], s["unit_name"]) == ("limit", "極限")
 
 
 def test_preview(client):
