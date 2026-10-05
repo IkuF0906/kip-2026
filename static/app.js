@@ -200,6 +200,86 @@ function updatePreview() {
   }, 300);
 }
 
+// 数式の入力ボタン。latex は数式エディタ用（#? は空欄、#0 は選択中の部分、#@ は直前の項）、
+// text はテキスト入力用で、[カーソルの前に入れる文字, 後に入れる文字]
+const MATH_BUTTONS = [
+  { label: "x", title: "変数 x", latex: "x", text: ["x", ""] },
+  { label: "\\square^{n}", title: "累乗（直前の項を底にする）", latex: "#@^{#?}", text: ["^(", ")"] },
+  { label: "\\frac{\\square}{\\square}", title: "分数", latex: "\\frac{#0}{#?}", text: ["(", ")/()"] },
+  { label: "\\sqrt{\\square}", title: "ルート", latex: "\\sqrt{#0}", text: ["sqrt(", ")"] },
+  { label: "(\\square)", title: "括弧", latex: "\\left(#0\\right)", text: ["(", ")"] },
+  { label: "\\cdot", title: "掛け算", latex: "\\cdot", text: ["*", ""] },
+  null,
+  { label: "\\sin", title: "sin", latex: "\\sin\\left(#0\\right)", text: ["sin(", ")"] },
+  { label: "\\cos", title: "cos", latex: "\\cos\\left(#0\\right)", text: ["cos(", ")"] },
+  { label: "\\tan", title: "tan", latex: "\\tan\\left(#0\\right)", text: ["tan(", ")"] },
+  { label: "e^{\\square}", title: "指数関数 e", latex: "e^{#?}", text: ["e^(", ")"] },
+  { label: "\\ln", title: "自然対数", latex: "\\ln\\left(#0\\right)", text: ["ln(", ")"] },
+  null,
+  { label: "⌫", title: "1文字消す", action: "backspace" },
+  { label: "クリア", title: "全部消す", action: "clear" },
+];
+
+function insertText(before, after) {
+  const input = $("answer-text");
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? start;
+  const selected = input.value.slice(start, end);
+  input.value = input.value.slice(0, start) + before + selected + after + input.value.slice(end);
+  const cursor = start + before.length + selected.length;
+  input.setSelectionRange(cursor, cursor);
+  input.focus();
+  updatePreview();
+}
+
+function pressMathButton(b) {
+  const mf = $("answer-math");
+  const input = $("answer-text");
+  if (b.action === "clear") {
+    mf.value = "";
+    input.value = "";
+    updatePreview();
+  } else if (b.action === "backspace") {
+    if (useText) {
+      const pos = input.selectionStart ?? input.value.length;
+      if (pos > 0) {
+        input.value = input.value.slice(0, pos - 1) + input.value.slice(pos);
+        input.setSelectionRange(pos - 1, pos - 1);
+      }
+      updatePreview();
+    } else {
+      mf.executeCommand("deleteBackward");
+    }
+  } else if (useText) {
+    insertText(...b.text);
+    return;
+  } else {
+    mf.insert(b.latex, { format: "latex", selectionMode: "placeholder" });
+  }
+  (useText ? input : mf).focus();
+}
+
+function setupMathButtons() {
+  const bar = $("math-buttons");
+  for (const b of MATH_BUTTONS) {
+    if (!b) {
+      const sep = document.createElement("span");
+      sep.className = "sep";
+      bar.appendChild(sep);
+      continue;
+    }
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.title = b.title;
+    if (b.action) btn.textContent = b.label;
+    else katex.render(b.label, btn, { throwOnError: false });
+    // クリックで入力欄のフォーカス（カーソル位置）が外れないようにする
+    btn.addEventListener("mousedown", (e) => e.preventDefault());
+    btn.addEventListener("click", () => pressMathButton(b));
+    bar.appendChild(btn);
+  }
+}
+
 // 入力方法ガイドの開閉を覚えておく（使えない環境では毎回開いた状態）
 function setupGuide() {
   const guide = $("guide");
@@ -223,6 +303,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   $("toggle-input").addEventListener("click", toggleInput);
   $("answer-text").addEventListener("input", updatePreview);
   setupGuide();
+  setupMathButtons();
   for (const id of ["answer-math", "answer-text"]) {
     $(id).addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
