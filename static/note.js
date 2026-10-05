@@ -8,7 +8,7 @@ const note = {
 };
 
 const PEN_WIDTH = 2.5;
-const ERASER_WIDTH = 22;
+const ERASER_WIDTH = 40;
 const CANVAS_HEIGHT = 520;
 
 function inkColor() {
@@ -62,6 +62,17 @@ function canvasPoint(e) {
   return [e.clientX - rect.left, e.clientY - rect.top];
 }
 
+// 消しゴムのときは、消える範囲を円の枠で表示する（ペンの消しゴム側で描いているときも含む）
+function moveEraserCursor(e) {
+  const cursor = $("eraser-cursor");
+  const erasing = note.current ? note.current.tool === "eraser" : note.tool === "eraser" || (e.pointerType === "pen" && e.buttons & 32);
+  cursor.hidden = !erasing;
+  if (!erasing) return;
+  const [x, y] = canvasPoint(e);
+  cursor.style.width = cursor.style.height = `${ERASER_WIDTH}px`;
+  cursor.style.transform = `translate(${x - ERASER_WIDTH / 2}px, ${y - ERASER_WIDTH / 2}px)`;
+}
+
 function setupCanvas() {
   const canvas = $("note-canvas");
   canvas.style.height = `${CANVAS_HEIGHT}px`;
@@ -74,8 +85,10 @@ function setupCanvas() {
     note.current = { tool, points: [canvasPoint(e)] };
     note.strokes.push(note.current);
     drawStroke(canvas.getContext("2d"), note.current);
+    moveEraserCursor(e);
   });
   canvas.addEventListener("pointermove", (e) => {
+    moveEraserCursor(e);
     if (!note.current) return;
     const pts = note.current.points;
     pts.push(canvasPoint(e));
@@ -87,6 +100,9 @@ function setupCanvas() {
   };
   canvas.addEventListener("pointerup", end);
   canvas.addEventListener("pointercancel", end);
+  canvas.addEventListener("pointerleave", () => {
+    $("eraser-cursor").hidden = true;
+  });
 
   new ResizeObserver(resizeCanvas).observe(canvas);
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redrawCanvas);
@@ -95,6 +111,7 @@ function setupCanvas() {
     b.addEventListener("click", () => {
       note.tool = b.dataset.tool;
       document.querySelectorAll(".note-tool").forEach((x) => x.classList.toggle("active", x === b));
+      canvas.classList.toggle("erasing", note.tool === "eraser");
     })
   );
   $("note-undo").addEventListener("click", () => {

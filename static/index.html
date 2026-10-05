@@ -54,7 +54,10 @@
               <button id="note-undo">元に戻す</button>
               <button id="note-clear">全部消す</button>
             </div>
-            <canvas id="note-canvas" aria-label="手書きノート"></canvas>
+            <div class="canvas-wrap">
+              <canvas id="note-canvas" aria-label="手書きノート"></canvas>
+              <div class="eraser-cursor" id="eraser-cursor" hidden></div>
+            </div>
           </div>
 
           <div id="note-memo" hidden>

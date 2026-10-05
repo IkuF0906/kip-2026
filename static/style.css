@@ -247,3 +247,16 @@ code { font-family: ui-monospace, Consolas, monospace; background: var(--bg); pa
 .card-section { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 16px; }
 /* 手書きと切り替えたときに高さが大きく変わらないようにする */
 #note-memo { min-height: 560px; }
+
+.canvas-wrap { position: relative; }
+#note-canvas.erasing { cursor: none; }
+.eraser-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  /* 明るい背景でも暗い背景でも見えるよう、濃い線と白い線を重ねる */
+  border: 1.5px solid var(--text);
+  box-shadow: 0 0 0 1px var(--surface), inset 0 0 0 1px var(--surface);
+  pointer-events: none;
+}
