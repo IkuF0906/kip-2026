@@ -202,31 +202,44 @@ function updatePreview() {
   }, 300);
 }
 
-// 数式の入力ボタン。latex は数式エディタ用（#? は空欄、#0 は選択中の部分、#@ は直前の項）、
-// text はテキスト入力用で、[カーソルの前に入れる文字, 後に入れる文字]。null は区切り線、"row" は改行
+// 数式の入力ボタン（電卓風の 6 列 × 5 行）。
+// latex は数式エディタ用（#? は空欄、#0 は選択中の部分、#@ は直前の項）、
+// text はテキスト入力用で [カーソルの前に入れる文字, 後に入れる文字]。
+// kind は見た目の種類（fn: 関数・編集、num: 数字、op: 演算子、submit: 答え合わせ）。
+// math: true のラベルは KaTeX で表示する
+const key = (label, title, latex, text, kind = "fn", math = true) => ({ label, title, latex, text, kind, math });
+const num = (d) => key(d, d, d, [d, ""], "num", false);
+const act = (label, title, action, kind = "fn") => ({ label, title, action, kind });
+
 const MATH_BUTTONS = [
-  { label: "x", title: "変数 x", latex: "x", text: ["x", ""] },
-  { label: "\\square^{n}", title: "累乗（直前の項を底にする）", latex: "#@^{#?}", text: ["^(", ")"] },
-  { label: "\\frac{\\square}{\\square}", title: "分数", latex: "\\frac{#0}{#?}", text: ["(", ")/()"] },
-  { label: "\\sqrt{\\square}", title: "ルート", latex: "\\sqrt{#0}", text: ["sqrt(", ")"] },
-  { label: "(\\square)", title: "括弧", latex: "\\left(#0\\right)", text: ["(", ")"] },
-  { label: "\\cdot", title: "掛け算", latex: "\\cdot", text: ["*", ""] },
-  null,
-  { label: "\\sin", title: "sin", latex: "\\sin\\left(#0\\right)", text: ["sin(", ")"] },
-  { label: "\\cos", title: "cos", latex: "\\cos\\left(#0\\right)", text: ["cos(", ")"] },
-  { label: "\\tan", title: "tan", latex: "\\tan\\left(#0\\right)", text: ["tan(", ")"] },
-  { label: "e^{\\square}", title: "指数関数 e", latex: "e^{#?}", text: ["e^(", ")"] },
-  { label: "\\ln", title: "自然対数", latex: "\\ln\\left(#0\\right)", text: ["ln(", ")"] },
-  null,
-  { label: "←", title: "カーソルを左へ", action: "left" },
-  { label: "→", title: "カーソルを右へ（指数や分数から抜けるときにも使う）", action: "right" },
-  { label: "⌫", title: "1文字消す", action: "backspace" },
-  { label: "クリア", title: "全部消す", action: "clear" },
-  "row",
-  ..."0123456789".split("").map((d) => ({ label: d, title: d, latex: d, text: [d, ""] })),
-  null,
-  { label: "+", title: "足し算", latex: "+", text: ["+", ""] },
-  { label: "-", title: "引き算・マイナス", latex: "-", text: ["-", ""] },
+  key("x", "変数 x", "x", ["x", ""]),
+  key("(\\square)", "括弧", "\\left(#0\\right)", ["(", ")"]),
+  act("←", "カーソルを左へ", "left"),
+  act("→", "カーソルを右へ（指数や分数から抜けるときにも使う）", "right"),
+  act("⌫", "1文字消す", "backspace"),
+  act("AC", "全部消す", "clear", "op"),
+
+  key("\\sin", "sin", "\\sin\\left(#0\\right)", ["sin(", ")"]),
+  key("\\cos", "cos", "\\cos\\left(#0\\right)", ["cos(", ")"]),
+  num("7"), num("8"), num("9"),
+  key("÷", "割り算（直前の項を分子にした分数）", "\\frac{#@}{#?}", ["/", ""], "op", false),
+
+  key("\\tan", "tan", "\\tan\\left(#0\\right)", ["tan(", ")"]),
+  key("\\ln", "自然対数", "\\ln\\left(#0\\right)", ["ln(", ")"]),
+  num("4"), num("5"), num("6"),
+  key("×", "掛け算", "\\cdot", ["*", ""], "op", false),
+
+  key("e^{\\square}", "指数関数 e", "e^{#?}", ["e^(", ")"]),
+  key("\\sqrt{\\square}", "ルート", "\\sqrt{#0}", ["sqrt(", ")"]),
+  num("1"), num("2"), num("3"),
+  key("−", "引き算・マイナス", "-", ["-", ""], "op", false),
+
+  key("\\square^{n}", "累乗（直前の項を底にする）", "#@^{#?}", ["^(", ")"]),
+  key("x^2", "x の2乗", "x^2", ["x^2", ""]),
+  num("0"),
+  key(".", "小数点", ".", [".", ""], "num", false),
+  act("答え合わせ", "答え合わせ（Enter）", "submit", "submit"),
+  key("+", "足し算", "+", ["+", ""], "op", false),
 ];
 
 // 入力ボタンの入力先。解答欄か、途中式メモの行のうち最後にフォーカスしたもの
@@ -250,6 +263,10 @@ function insertText(before, after) {
 }
 
 function pressMathButton(b) {
+  if (b.action === "submit") {
+    submit();
+    return;
+  }
   const field = targetField();
   const isText = field.tagName === "INPUT";
   if (b.action === "clear") {
@@ -286,17 +303,13 @@ function pressMathButton(b) {
 function setupMathButtons() {
   const bar = $("math-buttons");
   for (const b of MATH_BUTTONS) {
-    if (!b || b === "row") {
-      const sep = document.createElement("span");
-      sep.className = b ? "row-break" : "sep";
-      bar.appendChild(sep);
-      continue;
-    }
     const btn = document.createElement("button");
     btn.type = "button";
     btn.title = b.title;
-    if (b.action) btn.textContent = b.label;
-    else katex.render(b.label, btn, { throwOnError: false });
+    btn.className = `key key-${b.kind}`;
+    if (b.action === "submit") btn.id = "submit";
+    if (b.math) katex.render(b.label, btn, { throwOnError: false });
+    else btn.textContent = b.label;
     // クリックで入力欄のフォーカス（カーソル位置）が外れないようにする
     btn.addEventListener("mousedown", (e) => e.preventDefault());
     btn.addEventListener("click", () => pressMathButton(b));
@@ -322,7 +335,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.tab)));
   $("new-problem").addEventListener("click", newProblem);
   $("type-select").addEventListener("change", newProblem);
-  $("submit").addEventListener("click", submit);
   $("next").addEventListener("click", newProblem);
   $("toggle-input").addEventListener("click", toggleInput);
   $("answer-text").addEventListener("input", updatePreview);
