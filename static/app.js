@@ -22,7 +22,9 @@ function setLatex(el, latex) {
 
 async function api(path, options) {
   const res = await fetch(path, options);
-  const body = await res.json();
+  // nginx が返すエラー（回数制限など）は JSON ではない
+  const body = await res.json().catch(() => ({}));
+  if (res.status === 429) throw new Error("短い時間に送った回数が多すぎます。少し待ってからもう一度送ってください");
   if (!res.ok) throw new Error(body.detail || "通信エラー");
   return body;
 }
