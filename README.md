@@ -97,6 +97,21 @@ http://localhost:8080 で開けます。次の2つのコンテナで動きます
 
 nginx の設定は `deploy/nginx/` にあります。止めるときは `docker compose down` です（`-v` を付けると履歴も消えます）。
 
+#### インターネットに公開する（Cloudflare Tunnel）
+
+```sh
+docker compose --profile tunnel up -d --build
+docker compose logs tunnel   # https://xxxx.trycloudflare.com の URL が出る
+```
+
+`tunnel` コンテナ（cloudflared）が Cloudflare へ外向きに接続し、届いたアクセスを nginx に渡します。
+ルーターのポートを開ける必要はなく、HTTPS も Cloudflare が受け持ちます。
+アカウントのいらない Quick Tunnel なので、起動するたびに URL が変わり、PC を付けている間だけ公開されます。
+公開をやめるときは `docker compose --profile tunnel stop tunnel` です。
+
+- nginx は Cloudflare が付ける `CF-Connecting-IP` を送信元の IP として扱い、回数制限やログに使います。
+- HTTPS で開いたときは、Cookie に `Secure` を付けます。
+
 ### テスト
 
 ```sh

@@ -71,7 +71,14 @@ def create_app(db_path: str, now=datetime.now, adopt_local: bool = False) -> Fas
         if _USER_ID.fullmatch(uid):
             return uid
         uid = LOCAL_USER if adopt_local else uuid.uuid4().hex
-        response.set_cookie(USER_COOKIE, uid, max_age=400 * 24 * 3600, httponly=True, samesite="lax")
+        response.set_cookie(
+            USER_COOKIE,
+            uid,
+            max_age=400 * 24 * 3600,
+            httponly=True,
+            samesite="lax",
+            secure=request.url.scheme == "https",
+        )
         return uid
 
     @app.get("/api/units")

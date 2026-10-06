@@ -192,3 +192,9 @@ def test_old_db_is_migrated_to_local_user(tmp_path):
     answer(later, "power-1", "0")
     assert _power_attempts(later) == 2
     assert _power_attempts(TestClient(later.app)) == 0
+
+
+def test_cookie_is_secure_only_over_https(client):
+    assert "secure" not in client.get("/api/stats").headers["set-cookie"].lower()
+    https = TestClient(client.app, base_url="https://testserver")
+    assert "secure" in https.get("/api/stats").headers["set-cookie"].lower()
