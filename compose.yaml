@@ -1,13 +1,20 @@
-# 起動: docker compose up -d --build → http://localhost:8080
-# インターネットに公開: docker compose --profile tunnel up -d --build → docker compose logs tunnel に URL が出る
+# 起動: docker compose up -d → http://localhost:8080（GHCR のイメージを使う。手元のコードで作るときは --build）
+# インターネットに公開: --profile tunnel を付ける → docker compose logs tunnel に URL が出る
+# main への push で自動更新: --profile autodeploy を付ける（Watchtower が GHCR の新しいイメージに入れ替える）
+x-autodeploy: &autodeploy
+  com.centurylinklabs.watchtower.enable: "true"
+
 services:
   app:
+    image: ghcr.io/ikuf0906/kip-2026-app:latest
     build: .
     volumes:
       - drill-data:/data
+    labels: *autodeploy
     restart: unless-stopped
 
   nginx:
+    image: ghcr.io/ikuf0906/kip-2026-nginx:latest
     build:
       context: .
       dockerfile: deploy/nginx/Dockerfile
@@ -16,6 +23,7 @@ services:
     depends_on:
       app:
         condition: service_healthy
+    labels: *autodeploy
     restart: unless-stopped
 
   # Cloudflare Tunnel（アカウントなしの Quick Tunnel）。起動するたびに *.trycloudflare.com の URL が変わる
@@ -26,6 +34,16 @@ services:
       - nginx
     restart: unless-stopped
     profiles: [tunnel]
+
+  # 1分ごとに GHCR を見て、ラベルの付いたコンテナ（app・nginx）だけを新しいイメージで作り直す。
+  # 元の containrrr/watchtower は開発が終わったので、更新の続いているフォークを使う
+  watchtower:
+    image: nickfedor/watchtower:latest
+    command: --label-enable --interval 60 --cleanup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    profiles: [autodeploy]
 
 volumes:
   drill-data:

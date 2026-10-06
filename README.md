@@ -1,6 +1,6 @@
 # 数学ドリル — 類題自動生成＋誤答パターン診断
 
-[![test](https://github.com/IkuF0906/kip-2026/actions/workflows/test.yml/badge.svg)](https://github.com/IkuF0906/kip-2026/actions/workflows/test.yml)
+[![ci](https://github.com/IkuF0906/kip-2026/actions/workflows/ci.yml/badge.svg)](https://github.com/IkuF0906/kip-2026/actions/workflows/ci.yml)
 
 微分・積分・極限に加えて数列・場合の数と確率の練習問題を自動で作り、間違えたときに「なぜ間違えたか」を指摘する Web アプリです。
 AI・LLM の API は使わず、数式処理（SymPy）とルールだけで動きます。
@@ -85,7 +85,8 @@ uvicorn drill.api:app --reload
 ### Docker で動かす
 
 ```sh
-docker compose up -d --build
+docker compose up -d           # GitHub Container Registry（GHCR）に置いたイメージで動かす
+docker compose up -d --build   # 手元のコードからイメージを作って動かす
 ```
 
 http://localhost:8080 で開けます。次の2つのコンテナで動きます。
@@ -112,6 +113,19 @@ docker compose logs tunnel   # https://xxxx.trycloudflare.com の URL が出る
 - nginx は Cloudflare が付ける `CF-Connecting-IP` を送信元の IP として扱い、回数制限やログに使います。
 - HTTPS で開いたときは、Cookie に `Secure` を付けます。
 
+#### main への push で自動で更新する（Watchtower）
+
+```sh
+docker compose --profile tunnel --profile autodeploy up -d
+```
+
+1. main に push すると、GitHub Actions（`.github/workflows/ci.yml`）がテストを実行する
+2. テストが通ったら、`app`・`nginx` のイメージを作り、GHCR に `latest` とコミットのハッシュの2つのタグで置く
+3. `watchtower` コンテナが1分ごとに GHCR を見て、新しい `latest` があれば `app`・`nginx` のコンテナを作り直す
+
+動かしている PC から GHCR を見に行く方式（pull 型）なので、外から PC に入る経路を開ける必要がありません。
+前の版に戻すときは、`compose.yaml` のタグをコミットのハッシュに変えて `docker compose up -d` します。
+
 ### テスト
 
 ```sh
@@ -123,7 +137,7 @@ pytest
 - 各誤答パターンの式が、その原因として診断されること
 - 正解と誤答、誤答どうしが同じ式にならないこと
 
-main への push とプルリクエストのたびに、GitHub Actions が Python 3.10 と 3.12 でテストを実行します（`.github/workflows/test.yml`）。
+main への push とプルリクエストのたびに、GitHub Actions が Python 3.10 と 3.12 でテストを実行します（`.github/workflows/ci.yml`）。
 
 ### 評価
 
