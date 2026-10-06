@@ -1,7 +1,3 @@
 fastapi>=0.110
 uvicorn>=0.29
 sympy>=1.12
-pytest>=8.0
-httpx>=0.27
-# 開発用（画面の自動確認）
-playwright>=1.40

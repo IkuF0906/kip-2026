@@ -1,0 +1,21 @@
+# 起動: docker compose up -d --build → http://localhost:8080
+services:
+  app:
+    build: .
+    volumes:
+      - drill-data:/data
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: .
+      dockerfile: deploy/nginx/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  drill-data:

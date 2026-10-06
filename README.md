@@ -66,7 +66,7 @@ python -m venv .venv
 # macOS / Linux
 source .venv/bin/activate
 
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 uvicorn drill.api:app --reload
 ```
 
@@ -81,6 +81,21 @@ uvicorn drill.api:app --reload
   利用者を分ける前の `drill.db` は、起動時に ID `local` の履歴として移されます。
   これを今のブラウザに引き継ぐには、一度だけ環境変数 `DRILL_ADOPT_LOCAL=1` を付けて起動し、ページを開きます
   （このとき Cookie のないブラウザはすべて `local` になります）。
+
+### Docker で動かす
+
+```sh
+docker compose up -d --build
+```
+
+http://localhost:8080 で開けます。次の2つのコンテナで動きます。
+
+| コンテナ | 内容 |
+|---|---|
+| `nginx` | 画面（static/）を直接配信し、`/api/` をアプリに転送する。1つの IP から API に送れる回数を毎秒5回（一時的に20回まで）に制限する |
+| `app` | FastAPI のアプリ（`Dockerfile`）。DB は名前付きボリューム `drill-data` に保存するので、コンテナを作り直しても履歴は残る |
+
+nginx の設定は `deploy/nginx/` にあります。止めるときは `docker compose down` です（`-v` を付けると履歴も消えます）。
 
 ### テスト
 
@@ -125,6 +140,7 @@ drill/
   scheduler.py   型ごとの復習スケジュール（ライトナー方式）
   db.py          解答履歴と復習状態の保存（SQLite）
   api.py         Web API（FastAPI）と画面の配信
+deploy/          デプロイ用の設定（nginx）
 static/          画面（HTML/CSS/JavaScript、KaTeX・MathLive は CDN から読み込み）
 tests/           pytest
 scripts/         評価・画面確認のスクリプト
