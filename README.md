@@ -1,5 +1,7 @@
 # 数学ドリル — 類題自動生成＋誤答パターン診断
 
+[![test](https://github.com/IkuF0906/kip-2026/actions/workflows/test.yml/badge.svg)](https://github.com/IkuF0906/kip-2026/actions/workflows/test.yml)
+
 微分・積分・極限に加えて数列・場合の数と確率の練習問題を自動で作り、間違えたときに「なぜ間違えたか」を指摘する Web アプリです。
 AI・LLM の API は使わず、数式処理（SymPy）とルールだけで動きます。
 
@@ -86,6 +88,8 @@ pytest
 - 正解が、単元の定義から求め直した答えと一致すること（微分・積分は SymPy で計算し直し、極限は左右からの極限も確かめる）
 - 各誤答パターンの式が、その原因として診断されること
 - 正解と誤答、誤答どうしが同じ式にならないこと
+
+main への push とプルリクエストのたびに、GitHub Actions が Python 3.10 と 3.12 でテストを実行します（`.github/workflows/test.yml`）。
 
 ### 評価
 
