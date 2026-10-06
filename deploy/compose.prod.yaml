@@ -1,0 +1,29 @@
+# Oracle Cloud の VM で動かす構成。deploy/vm/deploy.sh がこのファイルを VM の /opt/drill/compose.yaml に置く。
+# イメージのタグ（コミットのハッシュ）は /opt/drill/.env の IMAGE_TAG で決まる
+services:
+  app:
+    image: ghcr.io/ikuf0906/kip-2026-app:${IMAGE_TAG:-latest}
+    volumes:
+      - drill-data:/data
+    restart: unless-stopped
+
+  nginx:
+    image: ghcr.io/ikuf0906/kip-2026-nginx:${IMAGE_TAG:-latest}
+    # 外からは Cloudflare Tunnel 経由でだけ入れる。VM の中からの確認用に localhost にだけ開ける
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Cloudflare Tunnel（Quick Tunnel）。デプロイではこのコンテナを作り直さないので、URL は VM を再起動するまで変わらない
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://nginx:80
+    depends_on:
+      - nginx
+    restart: unless-stopped
+
+volumes:
+  drill-data:
