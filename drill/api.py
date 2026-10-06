@@ -81,6 +81,11 @@ def create_app(db_path: str, now=datetime.now, adopt_local: bool = False) -> Fas
         )
         return uid
 
+    @app.get("/api/version")
+    def version():
+        """動いている版（イメージを作ったコミット）。Docker の外では dev。"""
+        return {"version": os.environ.get("APP_VERSION", "dev")}
+
     @app.get("/api/units")
     def list_units():
         return [{"id": u.id, "name": u.name} for u in UNITS.values()]

@@ -198,3 +198,7 @@ def test_cookie_is_secure_only_over_https(client):
     assert "secure" not in client.get("/api/stats").headers["set-cookie"].lower()
     https = TestClient(client.app, base_url="https://testserver")
     assert "secure" in https.get("/api/stats").headers["set-cookie"].lower()
+
+
+def test_version(client):
+    assert client.get("/api/version").json() == {"version": "dev"}

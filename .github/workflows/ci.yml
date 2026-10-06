@@ -54,6 +54,7 @@ jobs:
           tags: |
             ghcr.io/ikuf0906/kip-2026-${{ matrix.name }}:latest
             ghcr.io/ikuf0906/kip-2026-${{ matrix.name }}:${{ github.sha }}
+          build-args: APP_VERSION=${{ github.sha }}
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}

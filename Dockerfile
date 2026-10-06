@@ -1,9 +1,12 @@
 # アプリ（FastAPI）のイメージ。画面（static/）は nginx が配信するが、単体でも動くように含めておく
 FROM python:3.12-slim
 
+# イメージを作ったコミット。/api/version で返す（GitHub Actions が渡す）
+ARG APP_VERSION=dev
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    DRILL_DB=/data/drill.db
+    DRILL_DB=/data/drill.db \
+    APP_VERSION=$APP_VERSION
 
 WORKDIR /app
 COPY requirements.txt .
