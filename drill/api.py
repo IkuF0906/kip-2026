@@ -2,25 +2,31 @@
 
 起動: uvicorn drill.api:app --reload
 保存先の DB は環境変数 DRILL_DB で変えられる（既定は drill.db）。
+利用者は Cookie の ID で区別する。DRILL_ADOPT_LOCAL=1 で起動すると、Cookie のない
+ブラウザに、利用者を区別する前の履歴（ID は local）を引き継がせる。
 """
 
 import os
 import random
+import re
+import uuid
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import scheduler
 from .checker import AnswerParseError, parse_answer
-from .db import Store
+from .db import LOCAL_USER, Store
 from .diagnosis import diagnose
 from .templates import MISCONCEPTIONS, PROBLEM_TYPES, UNITS, Problem, from_id, generate, to_latex
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+USER_COOKIE = "drill_uid"
+_USER_ID = re.compile(rf"[0-9a-f]{{32}}|{LOCAL_USER}")
 
 
 class AnswerRequest(BaseModel):
@@ -53,10 +59,20 @@ def _type_ids(unit: str | None) -> list[str]:
     return [tid for tid, t in PROBLEM_TYPES.items() if unit is None or t.unit == unit]
 
 
-def create_app(db_path: str, now=datetime.now) -> FastAPI:
-    """now は現在時刻を返す関数（テストで時刻を固定するため差し替え可能）。"""
+def create_app(db_path: str, now=datetime.now, adopt_local: bool = False) -> FastAPI:
+    """now は現在時刻を返す関数（テストで時刻を固定するため差し替え可能）。
+    adopt_local が真なら、Cookie のない利用者を LOCAL_USER とする。"""
     app = FastAPI(title="数学ドリル")
     store = Store(db_path)
+
+    def user_id(request: Request, response: Response) -> str:
+        """Cookie の利用者 ID。なければ新しく発行して Cookie に入れる。"""
+        uid = request.cookies.get(USER_COOKIE, "")
+        if _USER_ID.fullmatch(uid):
+            return uid
+        uid = LOCAL_USER if adopt_local else uuid.uuid4().hex
+        response.set_cookie(USER_COOKIE, uid, max_age=400 * 24 * 3600, httponly=True, samesite="lax")
+        return uid
 
     @app.get("/api/units")
     def list_units():
@@ -79,8 +95,8 @@ def create_app(db_path: str, now=datetime.now) -> FastAPI:
         return _problem_json(_new_problem(type))
 
     @app.get("/api/review")
-    def review(unit: str | None = None):
-        state = scheduler.pick_next(store.states(_type_ids(unit)), now())
+    def review(unit: str | None = None, uid: str = Depends(user_id)):
+        state = scheduler.pick_next(store.states(uid, _type_ids(unit)), now())
         return _problem_json(_new_problem(state.type_id))
 
     @app.get("/api/preview")
@@ -92,7 +108,7 @@ def create_app(db_path: str, now=datetime.now) -> FastAPI:
             raise HTTPException(400, str(exc))
 
     @app.post("/api/answer")
-    def answer(req: AnswerRequest):
+    def answer(req: AnswerRequest, uid: str = Depends(user_id)):
         try:
             p = from_id(req.problem_id)
         except KeyError:
@@ -107,7 +123,7 @@ def create_app(db_path: str, now=datetime.now) -> FastAPI:
             raise HTTPException(400, f"この問題では {names} は使いません。{p.unit.var} の式か数で答えてください")
         d = diagnose(p, user_expr)
         mc = d.misconception
-        state = store.record(p.problem_id, p.type_id, req.answer, d.correct, mc.id if mc else None, now())
+        state = store.record(uid, p.problem_id, p.type_id, req.answer, d.correct, mc.id if mc else None, now())
         return {
             "correct": d.correct,
             "user_latex": to_latex(user_expr),
@@ -119,10 +135,10 @@ def create_app(db_path: str, now=datetime.now) -> FastAPI:
         }
 
     @app.get("/api/stats")
-    def stats():
-        counts = store.misconception_counts()
+    def stats(uid: str = Depends(user_id)):
+        counts = store.misconception_counts(uid)
         result = []
-        for s in store.states(list(PROBLEM_TYPES)):
+        for s in store.states(uid, list(PROBLEM_TYPES)):
             t = PROBLEM_TYPES[s.type_id]
             mistakes = [
                 {
@@ -152,4 +168,4 @@ def create_app(db_path: str, now=datetime.now) -> FastAPI:
     return app
 
 
-app = create_app(os.environ.get("DRILL_DB", "drill.db"))
+app = create_app(os.environ.get("DRILL_DB", "drill.db"), adopt_local=os.environ.get("DRILL_ADOPT_LOCAL") == "1")

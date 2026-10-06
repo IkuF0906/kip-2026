@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import datetime, timedelta
 
 import pytest
@@ -145,3 +146,49 @@ def test_stats_has_unit(client):
 def test_preview(client):
     assert client.get("/api/preview", params={"text": "2xsin(x)"}).json()["latex"] == r"2 x \sin{\left(x \right)}"
     assert client.get("/api/preview", params={"text": "(x+"}).status_code == 400
+
+
+def _power_attempts(client):
+    power = next(s for s in client.get("/api/stats").json() if s["type_id"] == "power")
+    return power["attempts"]
+
+
+def test_users_are_separated_by_cookie(client):
+    answer(client, "power-0", "0")
+    uid = client.cookies.get("drill_uid")
+    assert uid and len(uid) == 32
+    other = TestClient(client.app)
+    assert _power_attempts(other) == 0
+    assert other.cookies.get("drill_uid") != uid
+    assert _power_attempts(client) == 1
+
+
+def test_invalid_cookie_gets_new_id(client):
+    res = client.get("/api/stats", headers={"Cookie": "drill_uid=abc"})
+    assert len(res.cookies.get("drill_uid")) == 32
+
+
+def test_old_db_is_migrated_to_local_user(tmp_path):
+    path = tmp_path / "old.db"
+    conn = sqlite3.connect(path)
+    conn.executescript("""
+        CREATE TABLE attempts (id INTEGER PRIMARY KEY AUTOINCREMENT, problem_id TEXT NOT NULL,
+            type_id TEXT NOT NULL, answer_text TEXT NOT NULL, correct INTEGER NOT NULL,
+            misconception_id TEXT, created_at TEXT NOT NULL);
+        CREATE TABLE type_state (type_id TEXT PRIMARY KEY, box INTEGER NOT NULL, due_at TEXT,
+            attempts INTEGER NOT NULL, correct INTEGER NOT NULL);
+        INSERT INTO attempts VALUES (1, 'power-0', 'power', '0', 0, NULL, '2026-10-01T12:00:00');
+        INSERT INTO type_state VALUES ('power', 0, '2026-10-01T12:00:00', 1, 0);
+    """)
+    conn.commit()
+    conn.close()
+
+    local = TestClient(create_app(str(path), now=lambda: NOW, adopt_local=True))
+    assert _power_attempts(local) == 1
+    assert local.cookies.get("drill_uid") == "local"
+    # Cookie が付いた後は、引き継ぎの設定なしで起動しても同じ履歴が見える
+    later = TestClient(create_app(str(path), now=lambda: NOW))
+    later.cookies.set("drill_uid", "local")
+    answer(later, "power-1", "0")
+    assert _power_attempts(later) == 2
+    assert _power_attempts(TestClient(later.app)) == 0
