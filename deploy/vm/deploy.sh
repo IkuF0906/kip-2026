@@ -10,6 +10,19 @@ case "$sha" in
 esac
 [ "${#sha}" -eq 40 ] || { echo "コミットのハッシュは40文字です" >&2; exit 2; }
 
+# GitHub ではフォークのコミットも元のリポジトリの URL で取得できてしまう。
+# 他人が書いた compose.prod.yaml で動かされないよう、main に含まれるコミットだけを受け付ける
+body=$(curl -fsS "https://api.github.com/repos/IkuF0906/kip-2026/compare/$sha...main") || {
+  echo "main に含まれるコミットか確かめられませんでした" >&2
+  exit 3
+}
+# 一番外側の "status"（identical: main と同じ、ahead: main のほうが進んでいる）
+status=$(printf '%s\n' "$body" | sed -n 's/^  "status": "\([a-z]*\)",$/\1/p')
+case "$status" in
+  identical | ahead) ;;
+  *) echo "main に含まれないコミットです（$status）" >&2; exit 3 ;;
+esac
+
 cd /opt/drill
 # 構成はそのコミットの deploy/compose.prod.yaml を使う（リポジトリは公開なので認証は要らない）
 curl -fsSL "https://raw.githubusercontent.com/IkuF0906/kip-2026/$sha/deploy/compose.prod.yaml" -o compose.yaml.new
