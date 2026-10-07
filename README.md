@@ -185,7 +185,7 @@ python -m scripts.evaluate 200
 python -m scripts.screenshot
 ```
 
-インストール済みの Chrome を Playwright で操作し、主な画面（問題・ノート・答え合わせ・入力方法・成績・単元ごとの問題）の
+インストール済みの Chrome を Playwright で操作し、主な画面（問題・ノート・答え合わせ・入力方法・成績・単元ごとの問題、スマホの幅での表示）の
 スクリーンショットを `screenshots/` に保存します。一時的な DB を使う専用のサーバーを起動するので、普段の解答履歴には影響しません。
 
 ## 仕組み

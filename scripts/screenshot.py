@@ -56,6 +56,37 @@ def text_input_on(page) -> bool:
     return page.evaluate("useText")
 
 
+def take_mobile_screenshots(browser, out: Path, url: str, problems: list[str]) -> None:
+    """スマホ（幅 390px、指で操作）で、問題・答え合わせ・成績の画面を撮る。
+    開いたときに下へずれないこと、横にはみ出さないこと、入力キーの幅がそろっていることも確かめる。"""
+    ctx = browser.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
+    page = ctx.new_page()
+    page.on("pageerror", lambda e: problems.append(f"スマホ JS エラー: {e}"))
+    page.goto(url)
+    page.select_option("#type-select", "power")
+    page.wait_for_selector("#problem .katex", timeout=15000)
+    page.wait_for_timeout(800)
+    if page.evaluate("scrollY") != 0:
+        problems.append(f"スマホ: 開いたときに {page.evaluate('scrollY')}px 下にずれている")
+    if page.evaluate("document.documentElement.scrollWidth") > 390:
+        problems.append("スマホ: ページが横にはみ出している")
+    widths = set(page.eval_on_selector_all("#math-buttons .key", "ks => ks.map(k => Math.round(k.getBoundingClientRect().width))"))
+    if len(widths) > 1:
+        problems.append(f"スマホ: 入力キーの幅がそろっていない {sorted(widths)}")
+    page.screenshot(path=out / "11_mobile_problem.png", full_page=True)
+
+    page.tap("#math-buttons button[title='変数 x']")
+    page.tap("#submit")
+    page.wait_for_selector("#result:not([hidden])")
+    page.wait_for_timeout(500)
+    page.screenshot(path=out / "11_mobile_result.png")
+
+    page.tap('.tab[data-tab="stats"]')
+    page.wait_for_selector("#stats-body tr")
+    page.screenshot(path=out / "11_mobile_stats.png")
+    ctx.close()
+
+
 def take_screenshots(out: Path, url: str) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="chrome")
@@ -172,6 +203,7 @@ def take_screenshots(out: Path, url: str) -> None:
         page.wait_for_selector("#stats-body tr")
         page.screenshot(path=out / "6_stats.png", full_page=True)
 
+        take_mobile_screenshots(browser, out, url, problems)
         browser.close()
 
     print(f"スクリーンショットを {out}/ に保存しました")
