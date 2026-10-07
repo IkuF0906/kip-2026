@@ -61,3 +61,20 @@ jobs:
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  # イメージを置いたら、Oracle Cloud の VM に SSH で入ってそのコミットの版に入れ替える（push 型）。
+  # デプロイ用の鍵は VM 側で deploy.sh しか実行できないので、送るのはコミットのハッシュだけ
+  deploy:
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency: production
+    steps:
+      - name: SSH の鍵とホスト鍵を置く
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ vars.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: デプロイ
+        run: ssh ubuntu@${{ vars.DEPLOY_HOST }} "${{ github.sha }}"

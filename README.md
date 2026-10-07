@@ -126,6 +126,33 @@ docker compose --profile tunnel --profile autodeploy up -d
 動かしている PC から GHCR を見に行く方式（pull 型）なので、外から PC に入る経路を開ける必要がありません。
 前の版に戻すときは、`compose.yaml` のタグをコミットのハッシュに変えて `docker compose up -d` します。
 
+### Oracle Cloud の VM で動かす（本番）
+
+Oracle Cloud の Always Free の VM（VM.Standard.E2.1.Micro、Ubuntu 24.04、メモリ 1GB）で、PC を付けていなくても公開し続けます。
+main に push すると、GitHub Actions がテスト・イメージ作成のあと、VM に SSH で入ってそのコミットの版に入れ替えます（push 型）。
+
+```
+push → pytest → イメージを GHCR に置く（amd64・arm64） → SSH で VM の deploy.sh を実行
+                                                          ├ そのコミットの deploy/compose.prod.yaml を取得
+                                                          ├ IMAGE_TAG=<コミット> でイメージを取得して入れ替え
+                                                          └ /api/version が新しい版を返すまで待つ
+```
+
+| ファイル | 内容 |
+|---|---|
+| `deploy/compose.prod.yaml` | VM での構成（app・nginx・tunnel）。nginx は VM の localhost にだけ開ける |
+| `deploy/vm/setup.sh` | VM を最初に整える手順（スワップ 2GB、Docker、ログの大きさの制限、デプロイ用の鍵の登録） |
+| `deploy/vm/deploy.sh` | Actions が SSH で呼ぶデプロイ用スクリプト |
+
+- **ポートを開けない**：VM のファイアウォールは SSH（22番）以外の受信を拒否したままで、公開は Cloudflare Tunnel 経由だけです。
+- **デプロイ用の鍵を制限する**：Actions が使う鍵は、VM の `authorized_keys` で `command="/opt/drill/deploy.sh",restrict` を付けて登録しています。
+  鍵が漏れても、送れるのはコミットのハッシュだけで、ほかのコマンドは実行できません。
+- **なりすましを防ぐ**：VM のホスト鍵を Variable `DEPLOY_KNOWN_HOSTS` に登録し、Actions はそれと一致するときだけ接続します。
+- **前の版に戻す**：GitHub の Actions の画面で前のコミットの実行を「Re-run」するか、VM で `/opt/drill/deploy.sh <コミット>` を実行します。
+
+GitHub に登録してあるもの：Secret `DEPLOY_SSH_KEY`（デプロイ用の秘密鍵）、Variable `DEPLOY_HOST`（VM の IP アドレス）・`DEPLOY_KNOWN_HOSTS`。
+公開 URL は、VM で `docker compose -f /opt/drill/compose.yaml logs tunnel` を実行すると確認できます（VM を再起動すると変わります）。
+
 ### テスト
 
 ```sh
@@ -169,7 +196,7 @@ drill/
   scheduler.py   型ごとの復習スケジュール（ライトナー方式）
   db.py          解答履歴と復習状態の保存（SQLite）
   api.py         Web API（FastAPI）と画面の配信
-deploy/          デプロイ用の設定（nginx）
+deploy/          デプロイ用の設定（nginx、Oracle Cloud の VM）
 static/          画面（HTML/CSS/JavaScript、KaTeX・MathLive は CDN から読み込み）
 tests/           pytest
 scripts/         評価・画面確認のスクリプト
