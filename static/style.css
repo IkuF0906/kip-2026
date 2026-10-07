@@ -36,6 +36,9 @@
 
 * { box-sizing: border-box; }
 
+/* ダブルタップでの拡大を止める（キーを素早く2回押したときなど）。2本指の拡大・スクロールはできる */
+html { touch-action: manipulation; }
+
 [hidden] { display: none !important; }
 
 body {
@@ -261,6 +264,12 @@ code { font-family: ui-monospace, Consolas, monospace; background: var(--bg); pa
 #note-memo { min-height: 560px; }
 
 .canvas-wrap { position: relative; }
+/* ノートと入力キーでは、長押しやダブルタップで文字の選択・コピーのメニューが出ないようにする */
+.canvas-wrap, .note-tools, .keypad {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
 #note-canvas.erasing { cursor: none; }
 .eraser-cursor {
   position: absolute;

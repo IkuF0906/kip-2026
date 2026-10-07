@@ -116,6 +116,9 @@ function setupCanvas() {
   canvas.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
     if (e.pointerType === "touch") {
+      // 新しいタッチの1本目なら、前のタッチの記録を消す。iPhone では選択状態に入ったときなど
+      // 指を離した通知が来ないことがあり、残った記録のせいで1本指でも書けなくなっていた
+      if (e.isPrimary) touches.clear();
       touches.add(e.pointerId);
       if (touches.size > 1) {
         cancelStroke();
@@ -150,6 +153,18 @@ function setupCanvas() {
     if (note.current && e.pointerId === note.current.pointerId) cancelStroke();
     touches.delete(e.pointerId);
   });
+  canvas.addEventListener("lostpointercapture", (e) => {
+    if (note.current && e.pointerId === note.current.pointerId) note.current = null;
+  });
+  // iPhone の Safari は touch-action: pinch-zoom でもダブルタップで拡大し、文字の選択も始めるので、
+  // 1本指のタッチを離したときの既定の動きを止める（2本指の拡大・移動は止めない）
+  canvas.addEventListener(
+    "touchend",
+    (e) => {
+      if (e.cancelable && e.touches.length === 0 && e.changedTouches.length === 1) e.preventDefault();
+    },
+    { passive: false }
+  );
   canvas.addEventListener("pointerleave", () => {
     $("eraser-cursor").hidden = true;
   });
