@@ -147,10 +147,12 @@ push → pytest → イメージを GHCR に置く（amd64・arm64） → SSH �
 - **ポートを開けない**：VM のファイアウォールは SSH（22番）以外の受信を拒否したままで、公開は Cloudflare Tunnel 経由だけです。
 - **デプロイ用の鍵を制限する**：Actions が使う鍵は、VM の `authorized_keys` で `command="/opt/drill/deploy.sh",restrict` を付けて登録しています。
   鍵が漏れても、送れるのはコミットのハッシュだけで、ほかのコマンドは実行できません。
+  `deploy.sh` は、そのハッシュが main に含まれるかを GitHub の API で確かめます（フォークのコミットで動かされないため）。
+- **秘密鍵を main からだけ使う**：秘密鍵は GitHub の environment `production` の Secret にあり、この environment は main からしか使えません。
 - **なりすましを防ぐ**：VM のホスト鍵を Variable `DEPLOY_KNOWN_HOSTS` に登録し、Actions はそれと一致するときだけ接続します。
 - **前の版に戻す**：GitHub の Actions の画面で前のコミットの実行を「Re-run」するか、VM で `/opt/drill/deploy.sh <コミット>` を実行します。
 
-GitHub に登録してあるもの：Secret `DEPLOY_SSH_KEY`（デプロイ用の秘密鍵）、Variable `DEPLOY_HOST`（VM の IP アドレス）・`DEPLOY_KNOWN_HOSTS`。
+GitHub に登録してあるもの：environment `production` の Secret `DEPLOY_SSH_KEY`（デプロイ用の秘密鍵）、Variable `DEPLOY_HOST`（VM の IP アドレス）・`DEPLOY_KNOWN_HOSTS`。
 公開 URL は、VM で `docker compose -f /opt/drill/compose.yaml logs tunnel` を実行すると確認できます（VM を再起動すると変わります）。
 
 ### テスト
