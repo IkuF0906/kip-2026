@@ -187,4 +187,9 @@ def create_app(
     return app
 
 
-app = create_app(os.environ.get("DRILL_DB", "drill.db"), adopt_local=os.environ.get("DRILL_ADOPT_LOCAL") == "1")
+_sandbox = from_env()
+# 最初の答え合わせを待たせないよう、起動時にワーカーを立ち上げておく
+_sandbox.start()
+app = create_app(
+    os.environ.get("DRILL_DB", "drill.db"), adopt_local=os.environ.get("DRILL_ADOPT_LOCAL") == "1", sandbox=_sandbox
+)

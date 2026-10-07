@@ -88,8 +88,11 @@ class Sandbox:
     def _new_worker(self) -> _Worker:
         return _Worker(self._ctx, self.memory_mb)
 
+    def start(self) -> None:
+        """ワーカーを起動しておく（起動には SymPy の読み込みで数秒かかる）。呼ばなければ最初に使うときに起動する。"""
+        self._pool()
+
     def _pool(self) -> queue.Queue:
-        # ワーカーの起動（SymPy の読み込み）に時間がかかるので、最初に使うときに起動する
         with self._start_lock:
             if self._idle is None:
                 self._idle = queue.Queue()
