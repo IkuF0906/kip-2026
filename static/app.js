@@ -287,11 +287,11 @@ const key = (label, title, latex, text, kind = "fn", math = true) => ({ label, t
 const num = (d) => key(d, d, d, [d, ""], "num", false);
 const act = (label, title, action, kind = "fn") => ({ label, title, action, kind });
 
-// 変数のキー（x と x^2）は、数列の問題では n に置き換える（setVariable）
-const varKey = (power) => ({ ...key("", "", "", []), power });
+// 変数のキー（x）は、数列の問題では n に置き換える（setVariable）
+const varKey = () => ({ ...key("", "", "", []), variable: true });
 
 const MATH_BUTTONS = [
-  varKey(1),
+  varKey(),
   key("(\\square)", "括弧", "\\left(#0\\right)", ["(", ")"]),
   act("←", "カーソルを左へ", "left"),
   act("→", "カーソルを右へ（指数や分数から抜けるときにも使う）", "right"),
@@ -314,7 +314,8 @@ const MATH_BUTTONS = [
   key("−", "引き算・マイナス", "-", ["-", ""], "op", false),
 
   key("\\square^{n}", "累乗（直前の項を底にする）", "#@^{#?}", ["^(", ")"]),
-  varKey(2),
+  // ÷ は直前の項を分子にするが、こちらは空の分数を入れる（選んでいる部分があれば分子にする）
+  key("\\dfrac{\\square}{\\square}", "分数", "\\frac{#0}{#?}", ["(", ")/()"]),
   num("0"),
   key(".", "小数点", ".", [".", ""], "num", false),
   act("答え合わせ", "答え合わせ（Enter）", "submit", "submit"),
@@ -393,12 +394,11 @@ function setVariable(v) {
   if (v === variable) return;
   variable = v;
   for (const { b, btn } of varButtons) {
-    const label = b.power === 1 ? v : `${v}^2`;
-    b.label = b.latex = label;
-    b.text = [label, ""];
-    b.title = b.power === 1 ? `変数 ${v}` : `${v} の2乗`;
+    b.label = b.latex = v;
+    b.text = [v, ""];
+    b.title = `変数 ${v}`;
     btn.title = b.title;
-    katex.render(label, btn, { throwOnError: false });
+    katex.render(v, btn, { throwOnError: false });
   }
 }
 
@@ -406,7 +406,7 @@ function setupMathButtons() {
   const bar = $("math-buttons");
   for (const b of MATH_BUTTONS) {
     const btn = document.createElement("button");
-    if (b.power) varButtons.push({ b, btn });
+    if (b.variable) varButtons.push({ b, btn });
     btn.type = "button";
     btn.title = b.title;
     btn.className = `key key-${b.kind}`;
