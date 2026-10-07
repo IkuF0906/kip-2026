@@ -145,6 +145,8 @@ push → pytest → イメージを GHCR に置く（amd64・arm64） → SSH �
 | `deploy/vm/deploy.sh` | Actions が SSH で呼ぶデプロイ用スクリプト |
 
 - **ポートを開けない**：VM のファイアウォールは SSH（22番）以外の受信を拒否したままで、公開は Cloudflare Tunnel 経由だけです。
+- **SSH を守る**：パスワードでのログインは無効で、鍵がなければ入れません。総当たりの試みが絶えず来るので、
+  fail2ban で10分に5回失敗した IP を1時間遮断します。
 - **デプロイ用の鍵を制限する**：Actions が使う鍵は、VM の `authorized_keys` で `command="/opt/drill/deploy.sh",restrict` を付けて登録しています。
   鍵が漏れても、送れるのはコミットのハッシュだけで、ほかのコマンドは実行できません。
   `deploy.sh` は、そのハッシュが main に含まれるかを GitHub の API で確かめます（フォークのコミットで動かされないため）。

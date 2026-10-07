@@ -31,6 +31,15 @@ sudo usermod -aG docker ubuntu
 echo '{"log-driver": "json-file", "log-opts": {"max-size": "10m", "max-file": "3"}}' | sudo tee /etc/docker/daemon.json >/dev/null
 sudo systemctl restart docker
 
+# SSH にパスワードを総当たりで試す攻撃が絶えず来るので、10分で5回失敗した IP を1時間遮断する
+sudo apt-get install -y -qq fail2ban
+printf '%s\n' '[sshd]' 'enabled = true' 'backend = systemd' \
+  '# Ubuntu 24.04 では sshd のログは ssh.service に記録される' \
+  'journalmatch = _SYSTEMD_UNIT=ssh.service + _COMM=sshd' \
+  'maxretry = 5' 'findtime = 10m' 'bantime = 1h' | sudo tee /etc/fail2ban/jail.d/sshd.local >/dev/null
+sudo systemctl enable --now fail2ban
+sudo systemctl restart fail2ban
+
 # デプロイ用スクリプトを置き、デプロイ用の鍵ではそれしか実行できないようにする
 sudo install -d -o ubuntu -g ubuntu /opt/drill
 install -m 0755 deploy.sh /opt/drill/deploy.sh
