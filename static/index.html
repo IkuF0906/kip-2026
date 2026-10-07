@@ -68,13 +68,13 @@
             <button id="memo-add">＋ 行を追加</button>
             <p class="hint">Enter で次の行へ。下の入力ボタンは、最後に選んだ行に入ります。「解答欄へ」でその行の式を解答にコピーできます。</p>
           </div>
-          <p class="hint">ノートは新しい問題を出すと白紙に戻ります。</p>
+          <p class="hint">ノートは新しい問題を出すと白紙に戻ります。<span class="touch-only">2本指で拡大・移動できます。</span></p>
         </div>
 
         <div class="card-section">
           <div class="answer-row">
             <span class="prefix" id="answer-prefix"></span>
-            <math-field id="answer-math"></math-field>
+            <math-field id="answer-math" math-virtual-keyboard-policy="manual"></math-field>
             <input id="answer-text" type="text" placeholder="例: 3x^2 + 2sin(x)" hidden>
           </div>
           <p class="error" id="error" hidden></p>

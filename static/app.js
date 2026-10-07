@@ -3,6 +3,8 @@ const $ = (id) => document.getElementById(id);
 let mode = "practice"; // practice | review
 let current = null; // 表示中の問題
 let useText = false; // MathLive の代わりにテキスト入力を使う
+// スマホ・タブレット（指で操作する端末）。入力欄に自動でフォーカスすると、キーボードが開いて画面が隠れる
+const touchDevice = window.matchMedia("(pointer: coarse)").matches;
 
 function renderMath(el) {
   renderMathInElement(el, {
@@ -108,7 +110,11 @@ async function newProblem() {
   resetNote();
   activeField = null;
   $("submit").disabled = false;
-  (useText ? $("answer-text") : $("answer-math")).focus();
+  // 「次の問題」は下のほうにあるので、問題の先頭が見えるところまで戻す
+  const top = $("problem-card").getBoundingClientRect().top;
+  if (top < 0) window.scrollBy({ top: top - 16 });
+  // パソコンでは、すぐ打ち始められるようにフォーカスする（その位置までスクロールはしない）
+  if (!touchDevice) (useText ? $("answer-text") : $("answer-math")).focus({ preventScroll: true });
 }
 
 function readAnswer() {
@@ -175,7 +181,8 @@ function showResult(r) {
 
   $("next-due").textContent = `この型の次の復習: ${formatDue(r.next_due)}`;
   $("result").hidden = false;
-  $("next").focus();
+  if (!touchDevice) $("next").focus({ preventScroll: true }); // Enter で次の問題へ進めるように
+  $("result").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function formatDue(iso) {
@@ -405,6 +412,7 @@ function setupMathButtons() {
     btn.className = `key key-${b.kind}`;
     if (b.action === "submit") btn.id = "submit";
     if (b.math) katex.render(b.label, btn, { throwOnError: false });
+    else if (b.action === "submit") btn.innerHTML = "答え<wbr>合わせ"; // 狭い画面では「答え」の後で折り返す
     else btn.textContent = b.label;
     // クリックで入力欄のフォーカス（カーソル位置）が外れないようにする
     btn.addEventListener("mousedown", (e) => e.preventDefault());

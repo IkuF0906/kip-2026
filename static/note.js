@@ -9,7 +9,8 @@ const note = {
 
 const PEN_WIDTH = 2.5;
 const ERASER_WIDTH = 40;
-const CANVAS_HEIGHT = 520;
+// スマホでは問題と解答欄が離れすぎないよう低くする
+const canvasHeight = () => (window.matchMedia("(max-width: 600px)").matches ? 360 : 520);
 
 function inkColor() {
   return getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#000";
@@ -29,7 +30,31 @@ function drawStroke(ctx, s) {
   }
   ctx.beginPath();
   ctx.moveTo(pts[0][0], pts[0][1]);
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  for (let i = 1; i < pts.length; i++) smoothTo(ctx, pts, i);
+  ctx.stroke();
+}
+
+const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+
+// 点 i-1 を制御点にして、隣り合う点の中点どうしを曲線でつなぐ（折れ線より角が目立たない）
+function smoothTo(ctx, pts, i) {
+  if (i === 1) {
+    ctx.lineTo(...mid(pts[0], pts[1]));
+    return;
+  }
+  ctx.quadraticCurveTo(pts[i - 1][0], pts[i - 1][1], ...mid(pts[i - 1], pts[i]));
+}
+
+// 描いている途中の線に、点 from 以降の区間だけを描き足す
+function drawTail(ctx, s, from) {
+  const pts = s.points;
+  ctx.globalCompositeOperation = s.tool === "eraser" ? "destination-out" : "source-over";
+  ctx.lineWidth = s.tool === "eraser" ? ERASER_WIDTH : PEN_WIDTH;
+  ctx.strokeStyle = inkColor();
+  ctx.beginPath();
+  const start = from === 1 ? pts[0] : mid(pts[from - 2], pts[from - 1]);
+  ctx.moveTo(...start);
+  for (let i = from; i < pts.length; i++) smoothTo(ctx, pts, i);
   ctx.stroke();
 }
 
@@ -48,8 +73,10 @@ function resizeCanvas() {
   const width = canvas.clientWidth;
   if (!width) return; // 非表示のときは大きさが 0 なので、表示されたときにやり直す
   const dpr = window.devicePixelRatio || 1;
+  const height = canvasHeight();
+  canvas.style.height = `${height}px`;
   canvas.width = Math.round(width * dpr);
-  canvas.height = Math.round(CANVAS_HEIGHT * dpr);
+  canvas.height = Math.round(height * dpr);
   const ctx = canvas.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.lineCap = "round";
@@ -75,31 +102,54 @@ function moveEraserCursor(e) {
 
 function setupCanvas() {
   const canvas = $("note-canvas");
-  canvas.style.height = `${CANVAS_HEIGHT}px`;
+  // 触れている指。2本目が触れたら拡大・移動の操作とみなし、1本目で書き始めた線を取り消す
+  // （拡大・移動そのものはブラウザに任せる。CSS の touch-action: pinch-zoom）
+  const touches = new Set();
+
+  const cancelStroke = () => {
+    if (!note.current) return;
+    note.strokes.splice(note.strokes.indexOf(note.current), 1);
+    note.current = null;
+    redrawCanvas();
+  };
 
   canvas.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
+    if (e.pointerType === "touch") {
+      touches.add(e.pointerId);
+      if (touches.size > 1) {
+        cancelStroke();
+        return;
+      }
+    }
     canvas.setPointerCapture(e.pointerId);
     // ペンのボタンや消しゴム側で描いたときは消しゴムとして扱う
     const tool = e.pointerType === "pen" && (e.buttons & 32) ? "eraser" : note.tool;
-    note.current = { tool, points: [canvasPoint(e)] };
+    note.current = { tool, pointerId: e.pointerId, points: [canvasPoint(e)] };
     note.strokes.push(note.current);
     drawStroke(canvas.getContext("2d"), note.current);
     moveEraserCursor(e);
   });
   canvas.addEventListener("pointermove", (e) => {
     moveEraserCursor(e);
-    if (!note.current) return;
+    if (!note.current || e.pointerId !== note.current.pointerId) return;
     const pts = note.current.points;
-    pts.push(canvasPoint(e));
-    // 最後の1区間だけを描き足す
-    drawStroke(canvas.getContext("2d"), { tool: note.current.tool, points: pts.slice(-2) });
+    const from = pts.length;
+    // 前回のイベントから後の細かい動きもまとめて受け取り、速く動かしても線が角張らないようにする
+    const events = e.getCoalescedEvents?.() ?? [];
+    for (const ev of events.length ? events : [e]) pts.push(canvasPoint(ev));
+    drawTail(canvas.getContext("2d"), note.current, from);
   });
-  const end = () => {
-    note.current = null;
+  const end = (e) => {
+    touches.delete(e.pointerId);
+    if (note.current && e.pointerId === note.current.pointerId) note.current = null;
   };
   canvas.addEventListener("pointerup", end);
-  canvas.addEventListener("pointercancel", end);
+  canvas.addEventListener("pointercancel", (e) => {
+    // ブラウザが拡大・スクロールの操作として引き取ったときも、書きかけの線を取り消す
+    if (note.current && e.pointerId === note.current.pointerId) cancelStroke();
+    touches.delete(e.pointerId);
+  });
   canvas.addEventListener("pointerleave", () => {
     $("eraser-cursor").hidden = true;
   });
@@ -131,6 +181,8 @@ function addMemoLine(after = null, latex = "") {
   row.className = "memo-line";
 
   const mf = document.createElement("math-field");
+  // 画面の入力キーを使うので、MathLive の仮想キーボードは出さない
+  mf.setAttribute("math-virtual-keyboard-policy", "manual");
   mf.value = latex;
   mf.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
