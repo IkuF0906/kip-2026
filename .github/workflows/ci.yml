@@ -22,7 +22,7 @@ jobs:
       - run: python -m pytest -q
 
   # テストが通った main のコミットだけ、イメージを作って GHCR に置く。
-  # 動かしている側の Watchtower が新しい latest を見つけて入れ替える
+  # VM には下の deploy ジョブが入れ替える。PC で Watchtower を動かしていれば、新しい latest に入れ替わる
   publish:
     needs: pytest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
