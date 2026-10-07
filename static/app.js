@@ -290,6 +290,9 @@ const act = (label, title, action, kind = "fn") => ({ label, title, action, kind
 // 変数のキー（x）は、数列の問題では n に置き換える（setVariable）
 const varKey = () => ({ ...key("", "", "", []), variable: true });
 
+// テキスト入力で分数のキーを押すと「(分子)/(分母)」が入る。その分子と分母の間の部分
+const FRACTION_MIDDLE = ")/(";
+
 const MATH_BUTTONS = [
   varKey(),
   key("(\\square)", "括弧", "\\left(#0\\right)", ["(", ")"]),
@@ -315,7 +318,7 @@ const MATH_BUTTONS = [
 
   key("\\square^{n}", "累乗（直前の項を底にする）", "#@^{#?}", ["^(", ")"]),
   // ÷ は直前の項を分子にするが、こちらは空の分数を入れる（選んでいる部分があれば分子にする）
-  key("\\dfrac{\\square}{\\square}", "分数", "\\frac{#0}{#?}", ["(", ")/()"]),
+  key("\\dfrac{\\square}{\\square}", "分数", "\\frac{#0}{#?}", ["(", `${FRACTION_MIDDLE})`]),
   num("0"),
   key(".", "小数点", ".", [".", ""], "num", false),
   act("答え合わせ", "答え合わせ（Enter）", "submit", "submit"),
@@ -362,7 +365,11 @@ function pressMathButton(b) {
   } else if (b.action === "left" || b.action === "right") {
     const step = b.action === "left" ? -1 : 1;
     if (isText) {
-      const pos = Math.min(Math.max((field.selectionStart ?? field.value.length) + step, 0), field.value.length);
+      const cur = field.selectionStart ?? field.value.length;
+      // 分数のキーで入れた「(分子)/(分母)」の「)/(」は、1回で飛び越えて分子と分母の間を移る
+      const jump =
+        step > 0 ? field.value.startsWith(FRACTION_MIDDLE, cur) : field.value.slice(0, cur).endsWith(FRACTION_MIDDLE);
+      const pos = Math.min(Math.max(cur + step * (jump ? FRACTION_MIDDLE.length : 1), 0), field.value.length);
       field.setSelectionRange(pos, pos);
     } else {
       field.executeCommand(step < 0 ? "moveToPreviousChar" : "moveToNextChar");
@@ -422,6 +429,18 @@ function setupMathButtons() {
   setVariable("x");
 }
 
+// 長押し・右クリックで MathLive のメニュー（英語）が出ないようにする。
+// ページに組み込まれる前に設定すると例外になるので、組み込まれたとき（mount）にも設定する
+function hideMathMenu(mf) {
+  const apply = () => {
+    try {
+      mf.menuItems = [];
+    } catch {}
+  };
+  apply();
+  mf.addEventListener("mount", apply, { once: true });
+}
+
 // 入力方法の一覧（ダイアログ）。背景をクリックしても閉じる
 function setupGuide() {
   const guide = $("guide");
@@ -444,6 +463,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   $("next").addEventListener("click", newProblem);
   $("toggle-input").addEventListener("click", toggleInput);
   $("answer-text").addEventListener("input", updatePreview);
+  hideMathMenu($("answer-math"));
   setupGuide();
   setupMathButtons();
   setupNote();

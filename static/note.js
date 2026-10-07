@@ -198,6 +198,7 @@ function addMemoLine(after = null, latex = "") {
   const mf = document.createElement("math-field");
   // 画面の入力キーを使うので、MathLive の仮想キーボードは出さない
   mf.setAttribute("math-virtual-keyboard-policy", "manual");
+  hideMathMenu(mf);
   mf.value = latex;
   mf.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {

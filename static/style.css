@@ -119,6 +119,8 @@ math-field, #answer-text {
 }
 /* 画面の入力キーがあるので、MathLive の仮想キーボードを開くボタンは出さない */
 math-field::part(virtual-keyboard-toggle) { display: none; }
+/* MathLive のメニュー（英語で、学習には使わない）を開くボタンも出さない */
+math-field::part(menu-toggle) { display: none; }
 .answer-actions { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
 .error { color: var(--ng); margin: 8px 0 0; }
 
