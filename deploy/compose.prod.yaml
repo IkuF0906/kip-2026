@@ -5,6 +5,8 @@ services:
     image: ghcr.io/ikuf0906/kip-2026-app:${IMAGE_TAG:-latest}
     volumes:
       - drill-data:/data
+    # VM のメモリは 1GB。答え合わせのワーカーが暴れても VM 全体を巻き込まないよう上限を付ける
+    mem_limit: 640m
     restart: unless-stopped
 
   nginx:

@@ -19,14 +19,16 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import scheduler
-from .checker import AnswerParseError, parse_answer
+from .checker import AnswerParseError
 from .db import LOCAL_USER, Store
-from .diagnosis import diagnose
-from .templates import MISCONCEPTIONS, PROBLEM_TYPES, UNITS, Problem, from_id, generate, to_latex
+from .sandbox import Busy, ComputeTimeout, Sandbox, from_env
+from .templates import MISCONCEPTIONS, PROBLEM_TYPES, UNITS, Problem, generate
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 USER_COOKIE = "drill_uid"
 _USER_ID = re.compile(rf"[0-9a-f]{{32}}|{LOCAL_USER}")
+# 解答の文字数の上限（長い式ほど計算が重くなるため）
+MAX_ANSWER_LENGTH = 300
 
 
 class AnswerRequest(BaseModel):
@@ -59,11 +61,30 @@ def _type_ids(unit: str | None) -> list[str]:
     return [tid for tid, t in PROBLEM_TYPES.items() if unit is None or t.unit == unit]
 
 
-def create_app(db_path: str, now=datetime.now, adopt_local: bool = False) -> FastAPI:
+def create_app(
+    db_path: str, now=datetime.now, adopt_local: bool = False, sandbox: Sandbox | None = None
+) -> FastAPI:
     """now は現在時刻を返す関数（テストで時刻を固定するため差し替え可能）。
-    adopt_local が真なら、Cookie のない利用者を LOCAL_USER とする。"""
+    adopt_local が真なら、Cookie のない利用者を LOCAL_USER とする。
+    sandbox は答え合わせを動かすワーカー（省略すると環境変数の設定で作る）。"""
     app = FastAPI(title="数学ドリル")
     store = Store(db_path)
+    sandbox = sandbox or from_env()
+
+    def grade(task: str, text: str, *args):
+        """ワーカーで答え合わせの処理をし、失敗を HTTP のエラーに変える。"""
+        if len(text) > MAX_ANSWER_LENGTH:
+            raise HTTPException(400, f"解答が長すぎます（{MAX_ANSWER_LENGTH}文字まで）")
+        try:
+            return sandbox.call(task, *args, text)
+        except KeyError:
+            raise HTTPException(404, "問題が見つかりません")
+        except AnswerParseError as exc:
+            raise HTTPException(400, str(exc))
+        except ComputeTimeout:
+            raise HTTPException(400, "式の計算が終わりませんでした。指数や数が大きすぎないか確認してください")
+        except Busy:
+            raise HTTPException(503, "混み合っています。少し待ってからもう一度送ってください")
 
     def user_id(request: Request, response: Response) -> str:
         """Cookie の利用者 ID。なければ新しく発行して Cookie に入れる。"""
@@ -114,35 +135,21 @@ def create_app(db_path: str, now=datetime.now, adopt_local: bool = False) -> Fas
     @app.get("/api/preview")
     def preview(text: str):
         """テキスト入力の解答がどの式として読み取られるかを返す（答え合わせ前の確認用）。"""
-        try:
-            return {"latex": to_latex(parse_answer(text))}
-        except AnswerParseError as exc:
-            raise HTTPException(400, str(exc))
+        return {"latex": grade("preview", text)}
 
     @app.post("/api/answer")
     def answer(req: AnswerRequest, uid: str = Depends(user_id)):
-        try:
-            p = from_id(req.problem_id)
-        except KeyError:
-            raise HTTPException(404, "問題が見つかりません")
-        try:
-            user_expr = parse_answer(req.answer)
-        except AnswerParseError as exc:
-            raise HTTPException(400, str(exc))
-        extra = user_expr.free_symbols - p.unit.allowed_symbols()
-        if extra:
-            names = "、".join(sorted(str(s) for s in extra))
-            raise HTTPException(400, f"この問題では {names} は使いません。{p.unit.var} の式か数で答えてください")
-        d = diagnose(p, user_expr)
-        mc = d.misconception
-        state = store.record(uid, p.problem_id, p.type_id, req.answer, d.correct, mc.id if mc else None, now())
+        g = grade("check", req.answer, req.problem_id)
+        mid = g["misconception_id"]
+        mc = MISCONCEPTIONS[mid] if mid else None
+        state = store.record(uid, g["problem_id"], g["type_id"], req.answer, g["correct"], mid, now())
         return {
-            "correct": d.correct,
-            "user_latex": to_latex(user_expr),
-            "answer_latex": p.answer_latex,
+            "correct": g["correct"],
+            "user_latex": g["user_latex"],
+            "answer_latex": g["answer_latex"],
             "misconception": {"id": mc.id, "label": mc.label, "explanation": mc.explanation} if mc else None,
-            "note": d.note,
-            "steps": p.steps,
+            "note": g["note"],
+            "steps": g["steps"],
             "next_due": state.due_at.isoformat(),
         }
 

@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from drill.api import create_app
+from drill.api import MAX_ANSWER_LENGTH, create_app
+from drill.sandbox import Sandbox
 
 NOW = datetime(2026, 10, 5, 12, 0)
 
@@ -14,9 +15,17 @@ def clock():
     return {"now": NOW}
 
 
+@pytest.fixture(scope="module")
+def sandbox():
+    # ワーカーの起動には SymPy の読み込みで数秒かかるので、このファイルのテストで共有する
+    sb = Sandbox(workers=1)
+    yield sb
+    sb.close()
+
+
 @pytest.fixture
-def client(tmp_path, clock):
-    return TestClient(create_app(str(tmp_path / "test.db"), now=lambda: clock["now"]))
+def client(tmp_path, clock, sandbox):
+    return TestClient(create_app(str(tmp_path / "test.db"), now=lambda: clock["now"], sandbox=sandbox))
 
 
 def answer(client, problem_id, text):
@@ -168,7 +177,7 @@ def test_invalid_cookie_gets_new_id(client):
     assert len(res.cookies.get("drill_uid")) == 32
 
 
-def test_old_db_is_migrated_to_local_user(tmp_path):
+def test_old_db_is_migrated_to_local_user(tmp_path, sandbox):
     path = tmp_path / "old.db"
     conn = sqlite3.connect(path)
     conn.executescript("""
@@ -183,11 +192,11 @@ def test_old_db_is_migrated_to_local_user(tmp_path):
     conn.commit()
     conn.close()
 
-    local = TestClient(create_app(str(path), now=lambda: NOW, adopt_local=True))
+    local = TestClient(create_app(str(path), now=lambda: NOW, adopt_local=True, sandbox=sandbox))
     assert _power_attempts(local) == 1
     assert local.cookies.get("drill_uid") == "local"
     # Cookie が付いた後は、引き継ぎの設定なしで起動しても同じ履歴が見える
-    later = TestClient(create_app(str(path), now=lambda: NOW))
+    later = TestClient(create_app(str(path), now=lambda: NOW, sandbox=sandbox))
     later.cookies.set("drill_uid", "local")
     answer(later, "power-1", "0")
     assert _power_attempts(later) == 2
@@ -202,3 +211,22 @@ def test_cookie_is_secure_only_over_https(client):
 
 def test_version(client):
     assert client.get("/api/version").json() == {"version": "dev"}
+
+
+def test_too_long_answer_is_400(client):
+    res = answer(client, "power-0", "x+" * MAX_ANSWER_LENGTH)
+    assert res.status_code == 400
+    assert "長すぎ" in res.json()["detail"]
+
+
+def test_heavy_answer_times_out_and_worker_recovers(tmp_path):
+    # 計算が終わらない解答でも、時間の上限で打ち切り、次の解答は普通に答え合わせできる
+    sb = Sandbox(workers=1, timeout=1)
+    try:
+        client = TestClient(create_app(str(tmp_path / "t.db"), now=lambda: NOW, sandbox=sb))
+        res = answer(client, "power-0", "(x+1)^100000")
+        assert res.status_code == 400
+        assert "計算が終わりません" in res.json()["detail"]
+        assert answer(client, "power-0", "-15x^4 + 15x^2").json()["correct"] is True
+    finally:
+        sb.close()
