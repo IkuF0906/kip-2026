@@ -44,6 +44,15 @@ function withUnit(path, unit) {
   return unit ? `${path}?unit=${unit}` : path;
 }
 
+// 切り替えボタンの選択中の見た目と、読み上げ用の状態をそろえる
+function markActive(button, on) {
+  button.classList.toggle("active", on);
+  button.setAttribute("aria-pressed", String(on));
+}
+
+// 動きを減らす設定のときは、スクロールをなめらかにしない
+const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 function showError(message) {
   $("error").textContent = message;
   $("error").hidden = false;
@@ -218,7 +227,7 @@ function showResult(r) {
   $("next-due").textContent = `この型の次の復習: ${formatDue(r.next_due)}`;
   result.hidden = false;
   if (!touchDevice) $("next").focus({ preventScroll: true }); // Enter で次の問題へ進めるように
-  result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  result.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "nearest" });
 }
 
 function formatDue(iso) {
@@ -237,6 +246,7 @@ function showDueBadge(rows) {
   const n = rows.filter(isDue).length;
   $("due-badge").textContent = n;
   $("due-badge").hidden = n === 0;
+  $("due-badge-label").textContent = n ? `（期限の来た型 ${n}）` : "";
 }
 
 async function refreshDueBadge() {
@@ -246,13 +256,20 @@ async function refreshDueBadge() {
 }
 
 async function loadStats() {
-  const rows = await api("/api/stats");
+  let rows;
+  try {
+    rows = await api("/api/stats");
+  } catch {
+    $("stats-error").hidden = false;
+    return;
+  }
+  $("stats-error").hidden = true;
   showDueBadge(rows);
 
   const attempts = rows.reduce((n, s) => n + s.attempts, 0);
   const correct = rows.reduce((n, s) => n + s.correct, 0);
   $("sum-attempts").textContent = attempts;
-  $("sum-accuracy").textContent = attempts ? Math.round((correct / attempts) * 100) : "—";
+  $("sum-accuracy").textContent = attempts ? Math.round((correct / attempts) * 100) : "-";
   $("sum-accuracy-unit").hidden = !attempts;
   $("sum-due").textContent = rows.filter(isDue).length;
 
@@ -326,7 +343,11 @@ async function practiceType(unit, type) {
 }
 
 function switchTab(tab) {
-  document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+  document.querySelectorAll(".tab").forEach((b) => {
+    b.classList.toggle("active", b.dataset.tab === tab);
+    if (b.dataset.tab === tab) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
   $("drill").hidden = tab === "stats";
   $("stats").hidden = tab !== "stats";
   if (tab === "stats") {
@@ -573,6 +594,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   $("type-select").addEventListener("change", newProblem);
   $("next").addEventListener("click", newProblem);
   $("start-review").addEventListener("click", () => switchTab("review"));
+  $("stats-retry").addEventListener("click", loadStats);
   $("toggle-input").addEventListener("click", toggleInput);
   $("note-toggle").addEventListener("click", toggleNote);
   $("answer-text").addEventListener("input", updatePreview);

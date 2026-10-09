@@ -11,14 +11,14 @@
   --accent-ink: #2e5f69; /* アクセント系の文字（リンクなど）。アクセントの色のままでは薄くて読みにくい */
   --accent-soft: #e1f0f3;
   --accent-tint: #eaf4f6;
+  --ok: #a9d4b5; /* 正解の印の色 */
   --ok-ink: #4e7d5b;
-  --ok-bg: #e7f1ea;
   --ng: #f08080;
   --ng-ink: #b23b3b;
-  --ng-bg: #fce3e3;
-  --warn: #ffe4b5;
   --warn-line: #f5cf8e;
   --warn-ink: #7a5512;
+  --warn-soft: #fff6e3; /* 注意の枠の中。色は淡くして、文字と線で伝える */
+  --focus: #2e5f69; /* キーボード操作のときのフォーカスの線 */
   --key-fn: #eceae3;
   --key-num: #ffffff;
   --key-op: #e1f0f3;
@@ -26,7 +26,6 @@
   --paper: #fffcf3;
   --paper-line: #ece5cf;
   --paper-border: #e6e0cc;
-  --shadow: 0 1px 2px rgb(42 49 56 / 0.12);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,14 +42,14 @@
     --accent-ink: #9fd6e0;
     --accent-soft: #26393f;
     --accent-tint: #22343a;
+    --ok: #8fc79e;
     --ok-ink: #8fc79e;
-    --ok-bg: #1f3326;
     --ng: #f08080;
     --ng-ink: #f4a3a3;
-    --ng-bg: #3a2626;
-    --warn: #4a3b22;
     --warn-line: #6b5530;
     --warn-ink: #ffe4b5;
+    --warn-soft: #2e281d;
+    --focus: #9fd6e0;
     --key-fn: #2d3237;
     --key-num: #23272c;
     --key-op: #26393f;
@@ -58,7 +57,6 @@
     --paper: #26241f;
     --paper-line: #3a372e;
     --paper-border: #3f3b30;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
   }
 }
 
@@ -77,6 +75,21 @@ body {
   line-height: 1.6;
 }
 
+/* フォーカスの線はキーボードで操作したときだけ出す（マウス・指で押したときは出さない） */
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+:focus:not(:focus-visible) { outline: none; }
+
+/* 画面には出さず、読み上げにだけ伝える */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
 button {
@@ -93,7 +106,7 @@ button.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
-  font-weight: 700;
+  font-weight: 500;
 }
 button.link { border: none; background: none; color: var(--accent-ink); padding: 6px 4px; }
 @media (hover: hover) { button.link:hover { text-decoration: underline; } }
@@ -147,16 +160,18 @@ h1 { font-size: 1.25rem; margin: 0; letter-spacing: 0.02em; }
   align-items: center;
   gap: 8px;
 }
-.tab.active { background: var(--surface); color: var(--text); font-weight: 700; box-shadow: var(--shadow); }
+.tab { border: 1px solid transparent; }
+.tab.active { background: var(--surface); border-color: var(--border); color: var(--text); font-weight: 500; }
 .badge {
   min-width: 22px;
   height: 22px;
   padding: 0 6px;
   border-radius: 999px;
-  background: var(--ng);
-  color: #2a3138;
+  background: var(--accent);
+  color: var(--on-accent);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -169,7 +184,7 @@ main { max-width: 1320px; margin: 0 auto; padding: 20px 24px 48px; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 560px; }
 .chip { height: 36px; padding: 0 16px; border-radius: 999px; font-size: 0.9rem; white-space: nowrap; flex: none; }
-.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); font-weight: 500; }
 .type-picker { display: flex; gap: 8px; align-items: center; }
 .type-picker label { display: flex; gap: 8px; align-items: center; font-size: 0.9rem; color: var(--muted); }
 .type-picker select { height: 40px; color: var(--text); font-size: 0.9rem; }
@@ -210,7 +225,7 @@ main { max-width: 1320px; margin: 0 auto; padding: 20px 24px 48px; }
 .unit-tag {
   display: inline-block;
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--accent-ink);
   background: var(--accent-tint);
   padding: 1px 10px;
@@ -220,7 +235,7 @@ main { max-width: 1320px; margin: 0 auto; padding: 20px 24px 48px; }
 #prompt { margin: 0 0 4px; }
 .problem { font-size: 1.7rem; margin: 4px 0 0; overflow-x: auto; overflow-y: hidden; }
 
-.answer-label { margin: 0 0 8px; font-size: 0.8rem; font-weight: 700; color: var(--muted); }
+.answer-label { margin: 0 0 8px; font-size: 0.8rem; font-weight: 500; color: var(--muted); }
 .answer-row { display: flex; align-items: center; gap: 10px; }
 .answer-row .prefix { white-space: nowrap; font-size: 1.15rem; }
 math-field, #answer-text {
@@ -234,7 +249,8 @@ math-field, #answer-text {
   background: var(--surface);
   color: var(--text);
 }
-math-field:focus-within, #answer-text:focus { outline: none; box-shadow: 0 0 0 4px var(--accent-tint); }
+/* 入力欄は、まわりの線の色が濃くなることでフォーカスを示す */
+math-field:focus-within, #answer-text:focus { outline: none; border-color: var(--focus); }
 /* 画面の入力キーがあるので、MathLive の仮想キーボードを開くボタンは出さない */
 math-field::part(virtual-keyboard-toggle) { display: none; }
 /* MathLive のメニュー（英語で、学習には使わない）を開くボタンも出さない */
@@ -269,10 +285,10 @@ math-field::part(menu-toggle) { display: none; }
 .key:disabled { opacity: 0.5; cursor: default; filter: none; }
 .key-fn { background: var(--key-fn); }
 .key-num { background: var(--key-num); border-color: var(--border); font-weight: 500; }
-.key-op { background: var(--key-op); color: var(--accent-ink); font-size: 1.2rem; font-weight: 700; }
+.key-op { background: var(--key-op); color: var(--accent-ink); font-size: 1.2rem; font-weight: 500; }
 .key-edit { background: var(--key-edit); color: var(--muted); }
-.key-clear { background: var(--key-edit); color: var(--ng-ink); font-size: 0.9rem; font-weight: 700; }
-.key-submit { grid-column: span 3; background: var(--accent); color: var(--on-accent); font-weight: 700; }
+.key-clear { background: var(--key-edit); color: var(--ng-ink); font-size: 0.9rem; font-weight: 500; }
+.key-submit { grid-column: span 3; background: var(--accent); color: var(--on-accent); font-weight: 500; }
 
 /* --- ノート --- */
 
@@ -289,14 +305,14 @@ math-field::part(menu-toggle) { display: none; }
   color: var(--warn-ink);
   text-align: left;
 }
-.note-toggle-label { flex: 1; font-weight: 700; font-size: 0.9rem; }
+.note-toggle-label { flex: 1; font-weight: 500; font-size: 0.9rem; }
 .note-toggle-sub { font-size: 0.75rem; }
 
 .note-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.note-head h2 { font-size: 1rem; margin: 0; }
+.note-head h2 { font-size: 1rem; font-weight: 500; margin: 0; }
 .segmented { display: inline-flex; background: var(--key-edit); padding: 3px; border-radius: 10px; }
-.segmented button { border: none; background: none; color: var(--muted); border-radius: 8px; padding: 4px 14px; font-size: 0.85rem; }
-.segmented button.active { background: var(--surface); color: var(--text); font-weight: 700; box-shadow: var(--shadow); }
+.segmented button { border: 1px solid transparent; background: none; color: var(--muted); border-radius: 8px; padding: 4px 14px; font-size: 0.85rem; }
+.segmented button.active { background: var(--surface); border-color: var(--border); color: var(--text); font-weight: 500; }
 
 .note-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; align-items: center; }
 .note-tools .spacer { flex: 1; }
@@ -360,12 +376,12 @@ math-field::part(menu-toggle) { display: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #2a3138;
+  color: var(--on-accent);
 }
 .verdict-icon svg { width: 22px; height: 22px; stroke-width: 2.5; }
-.result.ok .verdict-icon { background: var(--accent); }
+.result.ok .verdict-icon { background: var(--ok); }
 .result.ng .verdict-icon { background: var(--ng); }
-.verdict { font-size: 1.4rem; font-weight: 700; line-height: 1.3; }
+.verdict { margin: 0; font-size: 1.4rem; font-weight: 500; line-height: 1.3; }
 .result.ok .verdict { color: var(--ok-ink); }
 .result.ng .verdict { color: var(--ng-ink); }
 .problem-type { color: var(--muted); font-size: 0.8rem; margin: 0; }
@@ -385,13 +401,13 @@ math-field::part(menu-toggle) { display: none; }
 .result.ng #user-answer { text-decoration: line-through; text-decoration-color: var(--ng); }
 #correct-answer { color: var(--ok-ink); }
 
-.diagnosis { background: var(--warn); border: 1px solid var(--warn-line); border-radius: 12px; padding: 12px 16px; }
-.diag-kicker { margin: 0; font-size: 0.75rem; font-weight: 700; color: var(--warn-ink); }
-.diagnosis h3 { margin: 2px 0 4px; font-size: 1rem; }
+.diagnosis { background: var(--warn-soft); border: 1px solid var(--warn-line); border-radius: 12px; padding: 12px 16px; }
+.diagnosis h3 { margin: 0 0 4px; font-size: 0.85rem; font-weight: 500; color: var(--warn-ink); }
 .diagnosis p { margin: 0; }
+.diagnosis .diag-label { font-weight: 500; margin-bottom: 4px; }
 
 details { border: 1px solid var(--border); border-radius: 12px; padding: 10px 16px; }
-summary { cursor: pointer; font-weight: 700; }
+summary { cursor: pointer; font-weight: 500; }
 #steps { margin: 8px 0 0; padding-left: 22px; }
 #steps li { margin: 6px 0; overflow-x: auto; }
 
@@ -404,28 +420,29 @@ summary { cursor: pointer; font-weight: 700; }
 .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 16px; }
 .tile { padding: 16px 22px; }
 .tile-label { margin: 0; font-size: 0.8rem; color: var(--muted); }
-.tile-value { margin: 0; font-size: 2.2rem; font-weight: 700; line-height: 1.2; }
+.tile-value { margin: 0; font-size: 2.2rem; font-weight: 500; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .tile-value small { font-size: 1rem; font-weight: 500; margin-left: 4px; }
 .tile-due { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--accent-tint); border-color: var(--accent-soft); }
 #start-review { height: 44px; white-space: nowrap; }
 
 .weak { padding: 16px 22px; margin-bottom: 20px; }
-.weak h2, .section-head h2 { margin: 0 0 10px; font-size: 1rem; }
+.weak h2, .section-head h2 { margin: 0 0 10px; font-size: 1rem; font-weight: 500; }
 .weak-item {
   display: flex;
   align-items: center;
   gap: 12px 16px;
   flex-wrap: wrap;
   padding: 12px 14px;
+  border: 1px solid var(--border-soft);
   border-radius: 12px;
-  background: var(--ng-bg);
+  background: var(--surface-2);
 }
 .weak-item + .weak-item { margin-top: 8px; }
 .weak-body { flex: 1 1 260px; min-width: 0; }
-.weak-name { font-weight: 700; }
+.weak-name { font-weight: 500; }
 .weak-name small { font-weight: 400; color: var(--muted); margin-left: 4px; }
-.weak-detail { font-size: 0.85rem; color: var(--ng-ink); }
-.weak-item button { border-color: var(--ng); color: var(--ng-ink); font-weight: 700; font-size: 0.85rem; height: 40px; }
+.weak-detail { font-size: 0.85rem; color: var(--muted); }
+.weak-item button { font-size: 0.85rem; height: 44px; }
 
 .section-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
 .legend { display: flex; gap: 16px; font-size: 0.75rem; color: var(--muted); margin-bottom: 10px; }
@@ -434,8 +451,8 @@ summary { cursor: pointer; font-weight: 700; }
 .unit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; }
 .unit-card { padding: 14px 18px 8px; }
 .unit-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.unit-card h3 { margin: 0; font-size: 1rem; }
-.unit-card-head span { font-size: 0.75rem; color: var(--muted); }
+.unit-card h3 { margin: 0; font-size: 1rem; font-weight: 500; }
+.unit-card-head span { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .bar { height: 6px; border-radius: 999px; background: var(--key-edit); margin: 8px 0 6px; overflow: hidden; }
 .bar span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
 .type-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border-soft); font-size: 0.9rem; }
@@ -443,15 +460,15 @@ summary { cursor: pointer; font-weight: 700; }
 .dots { display: flex; gap: 4px; }
 .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--border); display: inline-block; }
 .dot.on { background: var(--accent); }
-.status { min-width: 52px; text-align: right; font-size: 0.75rem; color: var(--muted); }
-.status.due { color: var(--ng-ink); font-weight: 700; }
-.status.later { color: var(--ok-ink); }
+.status { min-width: 52px; text-align: right; font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* 期限が来た型は「間違い」ではなく「やること」なので、赤ではなく注意の色にする */
+.status.due { color: var(--warn-ink); font-weight: 500; }
 .type-mistakes { flex-basis: 100%; margin: -4px 0 0; font-size: 0.75rem; color: var(--muted); }
 
 /* --- 入力方法のダイアログ --- */
 
 dialog#guide {
-  width: min(720px, calc(100vw - 32px));
+  width: min(720px, calc(100% - 32px));
   max-height: calc(100vh - 64px);
   overflow-y: auto;
   border: 1px solid var(--border);
@@ -462,11 +479,11 @@ dialog#guide {
 }
 dialog#guide::backdrop { background: rgb(0 0 0 / 0.4); }
 .dialog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.dialog-head h2 { font-size: 1.1rem; margin: 0; }
-.dialog-head button { border: none; font-size: 1.3rem; line-height: 1; padding: 4px 8px; }
+.dialog-head h2 { font-size: 1.1rem; font-weight: 500; margin: 0; }
+.dialog-head button { border: none; font-size: 1.3rem; line-height: 1; width: 44px; height: 44px; padding: 0; }
 dialog#guide table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 dialog#guide th, dialog#guide td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
-dialog#guide th { color: var(--muted); font-weight: 600; }
+dialog#guide th { color: var(--muted); font-weight: 500; }
 /* 項目名と表示例は折り返さない（説明の列だけ折り返す） */
 dialog#guide th:first-child, dialog#guide td:first-child,
 dialog#guide th:last-child, dialog#guide td:last-child { white-space: nowrap; }
@@ -488,6 +505,13 @@ code { font-family: ui-monospace, Consolas, monospace; background: var(--bg); pa
 .touch-only { display: none; }
 @media (pointer: coarse) { .touch-only { display: inline; } }
 
+/* 指で操作する端末では、押すところを 44px 以上にする */
+@media (pointer: coarse) {
+  .chip, .tab, button.link, .segmented button, .type-picker select, #new-problem { min-height: 44px; }
+}
+
+.stats-error { margin: 0 0 16px; }
+
 /* スマホ（幅 600px まで）: 余白を詰め、ノートはボタンで開いたときだけ出す */
 @media (max-width: 600px) {
   .topbar-inner { padding: 10px 12px; flex-wrap: nowrap; }
@@ -500,7 +524,7 @@ code { font-family: ui-monospace, Consolas, monospace; background: var(--bg); pa
   .toolbar { gap: 8px; margin-bottom: 10px; }
   /* 単元は1行に並べ、横にスクロールして選ぶ */
   .chips { flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
-  .chip { height: 34px; padding: 0 14px; font-size: 0.85rem; }
+  .chip { height: 36px; padding: 0 14px; font-size: 0.85rem; }
   .type-picker { flex: 1 1 100%; }
   .type-picker label { flex: 1; min-width: 0; }
   .type-picker select { flex: 1; min-width: 0; }

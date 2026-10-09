@@ -175,7 +175,7 @@ function setupCanvas() {
   document.querySelectorAll(".note-tool").forEach((b) =>
     b.addEventListener("click", () => {
       note.tool = b.dataset.tool;
-      document.querySelectorAll(".note-tool").forEach((x) => x.classList.toggle("active", x === b));
+      document.querySelectorAll(".note-tool").forEach((x) => markActive(x, x === b));
       canvas.classList.toggle("erasing", note.tool === "eraser");
     })
   );
@@ -198,6 +198,7 @@ function addMemoLine(after = null, latex = "") {
   const mf = document.createElement("math-field");
   // 画面の入力キーを使うので、MathLive の仮想キーボードは出さない
   mf.setAttribute("math-virtual-keyboard-policy", "manual");
+  mf.setAttribute("aria-label", "途中式の行");
   hideMathMenu(mf);
   mf.value = latex;
   mf.addEventListener("keydown", (e) => {
@@ -225,6 +226,7 @@ function addMemoLine(after = null, latex = "") {
   del.className = "link";
   del.textContent = "×";
   del.title = "この行を消す";
+  del.setAttribute("aria-label", "この行を消す");
   del.addEventListener("click", () => {
     if ($("memo-lines").children.length > 1) row.remove();
     else mf.value = "";
@@ -252,7 +254,7 @@ function copyToAnswer(latex) {
 // --- 全体 ---
 
 function switchNoteTab(name) {
-  document.querySelectorAll(".note-tab").forEach((b) => b.classList.toggle("active", b.dataset.note === name));
+  document.querySelectorAll(".note-tab").forEach((b) => markActive(b, b.dataset.note === name));
   $("note-draw").hidden = name !== "draw";
   $("note-memo").hidden = name !== "memo";
   if (name === "draw") resizeCanvas();
