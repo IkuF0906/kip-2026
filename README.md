@@ -16,7 +16,84 @@ AI・LLM の API は使わず、数式処理（SymPy）とルールだけで動�
 - **間違えた型を優先して復習**：型ごとにライトナー方式（間隔反復）で次の復習日を決め、
   「復習」タブでは選んだ単元の中から、期限が来た型・苦手な型を出題します。
 - **ノート**：手書き（ペン・消しゴム）と途中式メモで、紙を使わずに計算できます。
-- **成績画面**：単元・型ごとの正答率、習熟度、多い間違いを一覧できます。
+- **成績画面**：解いた数・正答率・いま復習する型の数と、つまずいている型、単元ごとの習熟度・多い間違いを確認できます。
+
+## システムの全体像
+
+### 構成
+
+利用者のブラウザから本番の VM までと、開発者の push から本番に反映されるまでの流れです。
+
+```mermaid
+flowchart LR
+  subgraph user[利用者]
+    browser["ブラウザ<br>HTML/CSS/JS・KaTeX・MathLive"]
+  end
+  subgraph cf[Cloudflare]
+    edge["Quick Tunnel<br>HTTPS を受ける"]
+  end
+  subgraph vm["Oracle Cloud の VM（Docker）"]
+    tunnel["tunnel<br>cloudflared"]
+    nginx["nginx<br>画面の配信・回数制限"]
+    app["app<br>FastAPI"]
+    workers["ワーカー ×2<br>SymPy で答え合わせ<br>5秒・256MB まで"]
+    db[("SQLite<br>解答履歴・復習状態")]
+  end
+  subgraph dev[開発]
+    git["GitHub<br>main に push"]
+    actions["GitHub Actions<br>pytest → イメージ作成"]
+    ghcr[("GHCR<br>app・nginx のイメージ")]
+  end
+
+  browser -- HTTPS --> edge
+  tunnel -- 外向きに接続 --> edge
+  tunnel --> nginx
+  nginx -- "/api/" --> app
+  app --> workers
+  app --> db
+  git --> actions --> ghcr
+  actions -- "SSH（deploy.sh だけ実行できる鍵）" --> vm
+  vm -. イメージを取得 .-> ghcr
+```
+
+| 層 | 使っているもの | 役割 |
+|---|---|---|
+| 画面 | HTML/CSS/JavaScript（ビルドなし）、KaTeX、MathLive | 問題と数式の表示、解答の入力（数式エディタ・入力キー・テキスト）、手書きノート、成績の表示 |
+| 配信 | nginx、Cloudflare Tunnel | 画面のファイルを直接返し、`/api/` だけをアプリに渡す。1つの IP から API に送れる回数を制限する。VM はポートを開けず、外への接続だけで公開する |
+| アプリ | FastAPI | 出題・答え合わせ・復習の順番・成績の API。利用者は Cookie の ID で区別する |
+| 数式処理 | SymPy（別プロセスのワーカー） | 解答の読み取り、正解・誤答の式との比較。重い式で止まらないよう、時間とメモリに上限を付ける |
+| 保存 | SQLite（Docker のボリューム） | 解答履歴と、型ごとの復習状態（ライトナー方式の箱と次の復習日） |
+| CI/CD | GitHub Actions、GHCR | push のたびにテストし、通れば amd64・arm64 のイメージを作って VM の版を入れ替える |
+
+### 答え合わせの流れ
+
+解答を送ってから結果が出るまでに、サーバーの中で行うことです。問題は保存せず、問題 ID（`<型>-<シード>`）から毎回作り直します。
+
+```mermaid
+sequenceDiagram
+  participant B as ブラウザ
+  participant N as nginx
+  participant A as app（FastAPI）
+  participant W as ワーカー（SymPy）
+  participant D as SQLite
+  B->>N: POST /api/answer {problem_id, answer}
+  N->>A: 回数制限の範囲なら転送
+  A->>W: 問題 ID と解答を渡す
+  Note over W: 1. 問題 ID から問題・正解・誤答の式を作り直す<br>2. 解答の文字列を式に変換する<br>3. 正解と等しいか（数値を代入して比べる）<br>4. 違えば誤答の式と1つずつ比べて原因を探す
+  W-->>A: 正誤・誤答パターン・解き方
+  A->>D: 解答を記録し、型の復習日を更新する
+  A-->>B: 結果（正誤・原因と正しい公式・解き方・次の復習日）
+```
+
+5秒で終わらない式（`9^9^9^9` など）はワーカーごと止めて作り直し、「式の計算が終わりませんでした」と返します。
+
+### 学習の流れ
+
+1. **練習**：単元と問題の型を選んで解く。型を選ばなければ、単元の中からランダムに出す
+2. **答え合わせ**：正解なら次へ。不正解なら、当てはまる誤答パターンの原因と正しい公式、解き方の手順を出す
+3. **復習の予定**：型ごとに、正解すると次の復習が 1・2・4・8 日後と延び、間違えるとすぐに戻る
+4. **復習**：期限が来た型・まだ解いていない型・苦手な型の順に自動で出す
+5. **成績**：つまずいている型と多い間違いを確かめ、その型の練習に戻る
 
 ## 単元と問題の型
 
