@@ -115,6 +115,7 @@ MISCONCEPTIONS = [
     ),
 ]
 
+
 def _built(answer, wrongs, steps, prompt, prefix, meta) -> Built:
     return Built(
         sp.nsimplify(answer),

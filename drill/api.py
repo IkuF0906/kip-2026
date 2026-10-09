@@ -50,6 +50,26 @@ def _problem_json(p: Problem) -> dict:
     }
 
 
+def _stats_json(s: scheduler.TypeState, mistakes: Counter) -> dict:
+    """型ごとの成績。mistakes は誤答パターン ID ごとの回数（None は未分類の誤り）。"""
+    t = PROBLEM_TYPES[s.type_id]
+    return {
+        "type_id": s.type_id,
+        "type_name": t.name,
+        "unit_id": t.unit,
+        "unit_name": UNITS[t.unit].name,
+        "attempts": s.attempts,
+        "correct": s.correct,
+        "accuracy": s.accuracy,
+        "box": s.box,
+        "due_at": s.due_at.isoformat() if s.due_at else None,
+        "mistakes": [
+            {"id": mid, "label": MISCONCEPTIONS[mid].label if mid else "未分類の誤り", "count": n}
+            for mid, n in mistakes.most_common()
+        ],
+    }
+
+
 def _new_problem(type_id: str) -> Problem:
     return generate(type_id, random.randrange(10**9))
 
@@ -113,10 +133,8 @@ def create_app(
 
     @app.get("/api/types")
     def list_types(unit: str | None = None):
-        return [
-            {"id": tid, "unit": PROBLEM_TYPES[tid].unit, "name": PROBLEM_TYPES[tid].name, "description": PROBLEM_TYPES[tid].description}
-            for tid in _type_ids(unit)
-        ]
+        types = (PROBLEM_TYPES[tid] for tid in _type_ids(unit))
+        return [{"id": t.id, "unit": t.unit, "name": t.name, "description": t.description} for t in types]
 
     @app.get("/api/problem")
     def problem(type: str | None = None, unit: str | None = None):
@@ -156,32 +174,7 @@ def create_app(
     @app.get("/api/stats")
     def stats(uid: str = Depends(user_id)):
         counts = store.misconception_counts(uid)
-        result = []
-        for s in store.states(uid, list(PROBLEM_TYPES)):
-            t = PROBLEM_TYPES[s.type_id]
-            mistakes = [
-                {
-                    "id": mid,
-                    "label": MISCONCEPTIONS[mid].label if mid else "未分類の誤り",
-                    "count": n,
-                }
-                for mid, n in counts.get(s.type_id, Counter()).most_common()
-            ]
-            result.append(
-                {
-                    "type_id": s.type_id,
-                    "type_name": t.name,
-                    "unit_id": t.unit,
-                    "unit_name": UNITS[t.unit].name,
-                    "attempts": s.attempts,
-                    "correct": s.correct,
-                    "accuracy": s.accuracy,
-                    "box": s.box,
-                    "due_at": s.due_at.isoformat() if s.due_at else None,
-                    "mistakes": mistakes,
-                }
-            )
-        return result
+        return [_stats_json(s, counts.get(s.type_id, Counter())) for s in store.states(uid, list(PROBLEM_TYPES))]
 
     app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
     return app

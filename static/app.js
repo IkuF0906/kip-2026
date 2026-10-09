@@ -31,6 +31,16 @@ async function api(path, options) {
   return body;
 }
 
+// 単元を選んでいれば ?unit=... を付ける（「すべて」は空文字）
+function withUnit(path, unit) {
+  return unit ? `${path}?unit=${unit}` : path;
+}
+
+function showError(message) {
+  $("error").textContent = message;
+  $("error").hidden = false;
+}
+
 let units = []; // [{id, name}]
 
 // 選んだ単元を覚えておく（使えない環境では毎回「微分」から始める）
@@ -58,7 +68,7 @@ async function loadUnits() {
 // 問題の型の選択肢を、選んだ単元のものにする。「すべて」のときは単元ごとにまとめて並べる
 async function loadTypes() {
   const unit = $("unit-select").value;
-  const types = await api(`/api/types${unit ? `?unit=${unit}` : ""}`);
+  const types = await api(withUnit("/api/types", unit));
   const select = $("type-select");
   select.length = 1; // 先頭の「ランダム」だけ残す
   const groups = new Map();
@@ -92,10 +102,17 @@ async function newProblem() {
   const unit = $("unit-select").value;
   const type = $("type-select").value;
   let path;
-  if (mode === "review") path = `/api/review${unit ? `?unit=${unit}` : ""}`;
+  if (mode === "review") path = withUnit("/api/review", unit);
   else if (type) path = `/api/problem?type=${type}`;
-  else path = `/api/problem${unit ? `?unit=${unit}` : ""}`;
-  current = await api(path);
+  else path = withUnit("/api/problem", unit);
+  try {
+    current = await api(path);
+  } catch (e) {
+    // 前の問題があればそのまま残し、取れなかったことだけを伝える
+    showError(`問題を読み込めませんでした: ${e.message}`);
+    $("problem-card").hidden = false;
+    return;
+  }
   setMathText($("prompt"), current.prompt);
   setLatex($("problem"), current.latex);
   $("problem").hidden = !current.latex; // 文章題で式がないときは問題文だけを出す
@@ -135,8 +152,7 @@ async function submit() {
       body: JSON.stringify({ problem_id: current.problem_id, answer }),
     });
   } catch (e) {
-    $("error").textContent = e.message;
-    $("error").hidden = false;
+    showError(e.message);
     return;
   }
   $("error").hidden = true;
@@ -340,16 +356,56 @@ function targetField() {
   return useText ? $("answer-text") : $("answer-math");
 }
 
-function insertText(before, after) {
-  const input = $("answer-text");
+// テキスト入力の選択範囲（カーソルだけのときは start === end）
+function textSelection(input) {
   const start = input.selectionStart ?? input.value.length;
-  const end = input.selectionEnd ?? start;
+  return [start, input.selectionEnd ?? start];
+}
+
+// 選んでいる部分を before と after で挟む（選んでいなければカーソルの位置に入れる）
+function insertText(input, before, after) {
+  const [start, end] = textSelection(input);
   const selected = input.value.slice(start, end);
   input.value = input.value.slice(0, start) + before + selected + after + input.value.slice(end);
   const cursor = start + before.length + selected.length;
   input.setSelectionRange(cursor, cursor);
-  input.focus();
+}
+
+// step は -1（左）か 1（右）
+function moveTextCursor(input, step) {
+  const [cur] = textSelection(input);
+  // 分数のキーで入れた「(分子)/(分母)」の「)/(」は、1回で飛び越えて分子と分母の間を移る
+  const jump =
+    step > 0 ? input.value.startsWith(FRACTION_MIDDLE, cur) : input.value.slice(0, cur).endsWith(FRACTION_MIDDLE);
+  const pos = Math.min(Math.max(cur + step * (jump ? FRACTION_MIDDLE.length : 1), 0), input.value.length);
+  input.setSelectionRange(pos, pos);
+}
+
+// 選んでいる部分があればそれを、なければカーソルの前の1文字を消す
+function deleteTextBackward(input) {
+  let [start, end] = textSelection(input);
+  if (start === end) start = Math.max(start - 1, 0);
+  input.value = input.value.slice(0, start) + input.value.slice(end);
+  input.setSelectionRange(start, start);
+}
+
+function pressTextKey(input, b) {
+  if (b.action === "left" || b.action === "right") {
+    moveTextCursor(input, b.action === "left" ? -1 : 1);
+    return;
+  }
+  if (b.action === "clear") input.value = "";
+  else if (b.action === "backspace") deleteTextBackward(input);
+  else insertText(input, ...b.text);
   updatePreview();
+}
+
+const MATH_FIELD_COMMANDS = { left: "moveToPreviousChar", right: "moveToNextChar", backspace: "deleteBackward" };
+
+function pressMathFieldKey(field, b) {
+  if (b.action === "clear") field.value = "";
+  else if (b.action) field.executeCommand(MATH_FIELD_COMMANDS[b.action]);
+  else field.insert(b.latex, { format: "latex", selectionMode: "placeholder" });
 }
 
 function pressMathButton(b) {
@@ -358,39 +414,8 @@ function pressMathButton(b) {
     return;
   }
   const field = targetField();
-  const isText = field.tagName === "INPUT";
-  if (b.action === "clear") {
-    field.value = "";
-    if (isText) updatePreview();
-  } else if (b.action === "left" || b.action === "right") {
-    const step = b.action === "left" ? -1 : 1;
-    if (isText) {
-      const cur = field.selectionStart ?? field.value.length;
-      // 分数のキーで入れた「(分子)/(分母)」の「)/(」は、1回で飛び越えて分子と分母の間を移る
-      const jump =
-        step > 0 ? field.value.startsWith(FRACTION_MIDDLE, cur) : field.value.slice(0, cur).endsWith(FRACTION_MIDDLE);
-      const pos = Math.min(Math.max(cur + step * (jump ? FRACTION_MIDDLE.length : 1), 0), field.value.length);
-      field.setSelectionRange(pos, pos);
-    } else {
-      field.executeCommand(step < 0 ? "moveToPreviousChar" : "moveToNextChar");
-    }
-  } else if (b.action === "backspace") {
-    if (isText) {
-      const pos = field.selectionStart ?? field.value.length;
-      if (pos > 0) {
-        field.value = field.value.slice(0, pos - 1) + field.value.slice(pos);
-        field.setSelectionRange(pos - 1, pos - 1);
-      }
-      updatePreview();
-    } else {
-      field.executeCommand("deleteBackward");
-    }
-  } else if (isText) {
-    insertText(...b.text);
-    return;
-  } else {
-    field.insert(b.latex, { format: "latex", selectionMode: "placeholder" });
-  }
+  if (field.tagName === "INPUT") pressTextKey(field, b);
+  else pressMathFieldKey(field, b);
   field.focus();
 }
 
