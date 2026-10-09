@@ -10,7 +10,7 @@ const note = {
 const PEN_WIDTH = 2.5;
 const ERASER_WIDTH = 40;
 // スマホでは問題と解答欄が離れすぎないよう低くする
-const canvasHeight = () => (window.matchMedia("(max-width: 600px)").matches ? 360 : 520);
+const canvasHeight = () => (window.matchMedia("(max-width: 600px)").matches ? 360 : 600);
 
 function inkColor() {
   return getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#000";

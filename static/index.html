@@ -4,7 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>数学ドリル</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%232f6fde%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2218%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22serif%22 font-style=%22italic%22%3Ef%E2%80%B2%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%238ccdd9%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2218%22 text-anchor=%22middle%22 fill=%22%232a3138%22 font-family=%22serif%22 font-style=%22italic%22%3Ef%E2%80%B2%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
@@ -14,36 +17,53 @@
   <script defer src="note.js"></script>
 </head>
 <body>
-  <header>
-    <h1>数学ドリル</h1>
-    <nav>
-      <button class="tab active" data-tab="practice">練習</button>
-      <button class="tab" data-tab="review">復習</button>
-      <button class="tab" data-tab="stats">成績</button>
-    </nav>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">f′</span>
+        <h1>数学ドリル</h1>
+      </div>
+      <nav class="tabs" aria-label="画面の切り替え">
+        <button class="tab active" data-tab="practice">練習</button>
+        <button class="tab" data-tab="review">復習<span class="badge" id="due-badge" hidden></span></button>
+        <button class="tab" data-tab="stats">成績</button>
+      </nav>
+    </div>
   </header>
 
   <main>
     <section id="drill">
       <div class="toolbar">
-        <label>単元
-          <select id="unit-select"><option value="">すべて</option></select>
-        </label>
-        <label id="type-label">問題の型
-          <select id="type-select"><option value="">ランダム</option></select>
-        </label>
-        <button id="new-problem">新しい問題</button>
+        <div class="chips" id="unit-chips" role="group" aria-label="単元"></div>
+        <div class="type-picker">
+          <label id="type-label">問題の型
+            <select id="type-select"><option value="">ランダム</option></select>
+          </label>
+          <button id="new-problem" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+            別の問題
+          </button>
+        </div>
       </div>
       <p class="hint" id="review-hint" hidden>選んだ単元の中から、期限が来た型・苦手な型を自動で出題します。</p>
 
-      <div class="card" id="problem-card" hidden>
-        <p id="prompt"></p>
-        <div class="problem" id="problem"></div>
+      <div class="workspace" id="problem-card" hidden>
+        <section class="pane problem-pane" aria-label="問題">
+          <span class="unit-tag" id="unit-tag"></span>
+          <p id="prompt"></p>
+          <div class="problem" id="problem"></div>
+        </section>
 
-        <div class="note card-section" id="note">
+        <button type="button" class="note-toggle" id="note-toggle" aria-expanded="false" aria-controls="note">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          <span class="note-toggle-label" id="note-toggle-label">ノートを開く</span>
+          <span class="note-toggle-sub">手書き・途中式</span>
+        </button>
+
+        <aside class="pane note" id="note" aria-label="ノート">
           <div class="note-head">
             <h2>ノート</h2>
-            <div class="segmented">
+            <div class="segmented" role="group" aria-label="ノートの種類">
               <button class="note-tab active" data-note="draw">手書き</button>
               <button class="note-tab" data-note="memo">途中式</button>
             </div>
@@ -51,10 +71,16 @@
 
           <div id="note-draw">
             <div class="note-tools">
-              <button class="note-tool active" data-tool="pen">ペン</button>
-              <button class="note-tool" data-tool="eraser">消しゴム</button>
+              <button class="note-tool icon-button active" data-tool="pen" title="ペン" aria-label="ペン">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              </button>
+              <button class="note-tool icon-button" data-tool="eraser" title="消しゴム" aria-label="消しゴム">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 21-4.3-4.3a1 1 0 0 1 0-1.4l10-10a1 1 0 0 1 1.4 0l5.6 5.6a1 1 0 0 1 0 1.4L11 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+              </button>
               <span class="spacer"></span>
-              <button id="note-undo">元に戻す</button>
+              <button id="note-undo" class="icon-button" title="元に戻す" aria-label="元に戻す">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+              </button>
               <button id="note-clear">全部消す</button>
             </div>
             <div class="canvas-wrap">
@@ -68,14 +94,15 @@
             <button id="memo-add">＋ 行を追加</button>
             <p class="hint">Enter で次の行へ。下の入力ボタンは、最後に選んだ行に入ります。「解答欄へ」でその行の式を解答にコピーできます。</p>
           </div>
-          <p class="hint">ノートは新しい問題を出すと白紙に戻ります。<span class="touch-only">2本指で拡大・移動できます。</span></p>
-        </div>
+          <p class="hint">別の問題に進むと白紙に戻ります。<span class="touch-only">2本指で拡大・移動できます。</span></p>
+        </aside>
 
-        <div class="card-section">
+        <section class="pane answer-pane" aria-label="解答">
+          <p class="answer-label">あなたの答え</p>
           <div class="answer-row">
             <span class="prefix" id="answer-prefix"></span>
-            <math-field id="answer-math" math-virtual-keyboard-policy="manual"></math-field>
-            <input id="answer-text" type="text" placeholder="例: 3x^2 + 2sin(x)" hidden>
+            <math-field id="answer-math" math-virtual-keyboard-policy="manual" aria-label="解答"></math-field>
+            <input id="answer-text" type="text" placeholder="例: 3x^2 + 2sin(x)" aria-label="解答" hidden>
           </div>
           <p class="error" id="error" hidden></p>
           <p class="preview" id="preview" hidden></p>
@@ -83,20 +110,29 @@
             <div class="math-buttons" id="math-buttons" aria-label="数式の入力ボタン"></div>
             <div class="answer-actions">
               <button id="toggle-input" class="link">テキストで入力する</button>
-              <button id="open-guide" type="button" class="guide-button">入力方法</button>
+              <button id="open-guide" type="button" class="link guide-link">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><path d="M12 17h.01"/></svg>
+                入力方法
+              </button>
             </div>
           </div>
-        </div>
+        </section>
       </div>
 
-      <div class="card" id="result" hidden>
-        <div class="verdict" id="verdict"></div>
-        <p class="problem-type" id="problem-type"></p>
+      <section class="pane result" id="result" hidden aria-live="polite">
+        <div class="result-head">
+          <span class="verdict-icon" id="verdict-icon" aria-hidden="true"></span>
+          <div>
+            <div class="verdict" id="verdict"></div>
+            <p class="problem-type" id="problem-type"></p>
+          </div>
+        </div>
         <dl class="compare">
           <dt>あなたの答え</dt><dd id="user-answer"></dd>
           <dt>正解</dt><dd id="correct-answer"></dd>
         </dl>
         <div class="diagnosis" id="diagnosis" hidden>
+          <p class="diag-kicker">考えられる原因</p>
           <h3 id="diag-label"></h3>
           <p id="diag-explanation"></p>
         </div>
@@ -107,19 +143,47 @@
           <summary>解き方</summary>
           <ol id="steps"></ol>
         </details>
-        <p class="next-due" id="next-due"></p>
-        <button id="next" class="primary">次の問題</button>
-      </div>
+        <div class="result-foot">
+          <p class="next-due" id="next-due"></p>
+          <button id="next" class="primary">次の問題 →</button>
+        </div>
+      </section>
     </section>
 
     <section id="stats" hidden>
-      <table>
-        <thead>
-          <tr><th>型</th><th>解答数</th><th>正答率</th><th>習熟</th><th>次の復習</th><th>多い間違い</th></tr>
-        </thead>
-        <tbody id="stats-body"></tbody>
-      </table>
+      <div class="summary">
+        <div class="pane tile">
+          <p class="tile-label">解いた問題</p>
+          <p class="tile-value"><span id="sum-attempts">0</span><small>問</small></p>
+        </div>
+        <div class="pane tile">
+          <p class="tile-label">正答率</p>
+          <p class="tile-value"><span id="sum-accuracy">—</span><small id="sum-accuracy-unit">%</small></p>
+        </div>
+        <div class="pane tile tile-due">
+          <div>
+            <p class="tile-label">いま復習する型</p>
+            <p class="tile-value"><span id="sum-due">0</span><small>型</small></p>
+          </div>
+          <button id="start-review" class="primary">復習を始める</button>
+        </div>
+      </div>
+
+      <section class="pane weak" id="weak-box" hidden>
+        <h2>つまずいているところ</h2>
+        <div id="weak-list"></div>
+      </section>
+
+      <div class="section-head">
+        <h2>単元ごとの習熟</h2>
+        <div class="legend">
+          <span><span class="dot on"></span>正解で1つ進む（4つで習熟）</span>
+          <span><span class="dot"></span>まだ</span>
+        </div>
+      </div>
+      <div class="unit-grid" id="stats-units"></div>
     </section>
+
     <dialog id="guide" aria-labelledby="guide-title">
       <div class="dialog-head">
         <h2 id="guide-title">入力方法</h2>

@@ -22,6 +22,14 @@ function setLatex(el, latex) {
   katex.render(latex, el, { throwOnError: false });
 }
 
+// 要素を作る（cls・text は省略できる）
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
 async function api(path, options) {
   const res = await fetch(path, options);
   // nginx が返すエラー（回数制限など）は JSON ではない
@@ -42,6 +50,7 @@ function showError(message) {
 }
 
 let units = []; // [{id, name}]
+let selectedUnit = "derivative"; // 選んでいる単元（"" はすべて）
 
 // 選んだ単元を覚えておく（使えない環境では毎回「微分」から始める）
 function savedUnit() {
@@ -54,20 +63,28 @@ function savedUnit() {
 
 async function loadUnits() {
   units = await api("/api/units");
-  const select = $("unit-select");
-  for (const u of units) {
-    const opt = document.createElement("option");
-    opt.value = u.id;
-    opt.textContent = u.name;
-    select.appendChild(opt);
+  const chips = $("unit-chips");
+  for (const u of [{ id: "", name: "すべて" }, ...units]) {
+    const chip = el("button", "chip", u.name);
+    chip.type = "button";
+    chip.dataset.unit = u.id;
+    chip.addEventListener("click", () => selectUnit(u.id));
+    chips.appendChild(chip);
   }
   const saved = savedUnit();
-  select.value = units.some((u) => u.id === saved) || saved === "" ? saved : "derivative";
+  selectedUnit = units.some((u) => u.id === saved) || saved === "" ? saved : "derivative";
+  markSelectedUnit();
+}
+
+function markSelectedUnit() {
+  for (const chip of $("unit-chips").children) {
+    chip.setAttribute("aria-pressed", String(chip.dataset.unit === selectedUnit));
+  }
 }
 
 // 問題の型の選択肢を、選んだ単元のものにする。「すべて」のときは単元ごとにまとめて並べる
 async function loadTypes() {
-  const unit = $("unit-select").value;
+  const unit = selectedUnit;
   const types = await api(withUnit("/api/types", unit));
   const select = $("type-select");
   select.length = 1; // 先頭の「ランダム」だけ残す
@@ -83,23 +100,25 @@ async function loadTypes() {
       }
       parent = groups.get(t.unit);
     }
-    const opt = document.createElement("option");
+    const opt = el("option", "", t.name);
     opt.value = t.id;
-    opt.textContent = t.name;
     parent.appendChild(opt);
   }
 }
 
-async function changeUnit() {
+// 単元を切り替える。newOne が真なら、その単元の問題を出す
+async function selectUnit(unit, newOne = true) {
+  selectedUnit = unit;
+  markSelectedUnit();
   try {
-    localStorage.setItem("unit", $("unit-select").value);
+    localStorage.setItem("unit", unit);
   } catch {}
   await loadTypes();
-  newProblem();
+  if (newOne) newProblem();
 }
 
 async function newProblem() {
-  const unit = $("unit-select").value;
+  const unit = selectedUnit;
   const type = $("type-select").value;
   let path;
   if (mode === "review") path = withUnit("/api/review", unit);
@@ -113,6 +132,8 @@ async function newProblem() {
     $("problem-card").hidden = false;
     return;
   }
+  // 単元は出すが、問題の型は解き方のヒントになるので答え合わせの後にだけ出す
+  $("unit-tag").textContent = current.unit_name;
   setMathText($("prompt"), current.prompt);
   setLatex($("problem"), current.latex);
   $("problem").hidden = !current.latex; // 文章題で式がないときは問題文だけを出す
@@ -158,24 +179,27 @@ async function submit() {
   $("error").hidden = true;
   $("submit").disabled = true;
   showResult(result);
+  refreshDueBadge();
 }
 
+const ICON_CHECK = '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
+const ICON_CROSS = '<svg viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
+
 function showResult(r) {
-  const verdict = $("verdict");
-  verdict.textContent = r.correct ? "正解！" : "不正解";
-  verdict.className = `verdict ${r.correct ? "ok" : "ng"}`;
-  // 単元・型の名前は解き方のヒントになるので、答え合わせの後にだけ出す
-  setMathText($("problem-type"), `この問題：${current.unit_name} ／ ${current.type_name}`);
+  const result = $("result");
+  result.classList.toggle("ok", r.correct);
+  result.classList.toggle("ng", !r.correct);
+  $("verdict-icon").innerHTML = r.correct ? ICON_CHECK : ICON_CROSS;
+  $("verdict").textContent = r.correct ? "正解！" : "不正解";
+  setMathText($("problem-type"), `${current.unit_name} ／ ${current.type_name}`);
   setLatex($("user-answer"), r.user_latex);
   setLatex($("correct-answer"), r.answer_latex);
 
   const diag = $("diagnosis");
-  if (r.correct) {
-    diag.hidden = true;
-  } else {
-    diag.hidden = false;
+  diag.hidden = r.correct;
+  if (!r.correct) {
     if (r.misconception) {
-      setMathText($("diag-label"), `考えられる原因: ${r.misconception.label}`);
+      setMathText($("diag-label"), r.misconception.label);
       setMathText($("diag-explanation"), r.misconception.explanation);
     } else {
       $("diag-label").textContent = "よくある間違いのパターンには当てはまりませんでした";
@@ -187,18 +211,14 @@ function showResult(r) {
 
   const steps = $("steps");
   steps.innerHTML = "";
-  for (const s of r.steps) {
-    const li = document.createElement("li");
-    li.textContent = s;
-    steps.appendChild(li);
-  }
+  for (const s of r.steps) steps.appendChild(el("li", "", s));
   renderMath(steps);
   $("steps-box").open = !r.correct;
 
   $("next-due").textContent = `この型の次の復習: ${formatDue(r.next_due)}`;
-  $("result").hidden = false;
+  result.hidden = false;
   if (!touchDevice) $("next").focus({ preventScroll: true }); // Enter で次の問題へ進めるように
-  $("result").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  result.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function formatDue(iso) {
@@ -208,40 +228,101 @@ function formatDue(iso) {
   return `${days}日後`;
 }
 
+// --- 成績 ---
+
+const isDue = (s) => s.attempts > 0 && s.due_at && new Date(s.due_at) <= new Date();
+
+// 「復習」のタブに、期限が来た型の数を出す
+function showDueBadge(rows) {
+  const n = rows.filter(isDue).length;
+  $("due-badge").textContent = n;
+  $("due-badge").hidden = n === 0;
+}
+
+async function refreshDueBadge() {
+  try {
+    showDueBadge(await api("/api/stats"));
+  } catch {} // バッジは補助の表示なので、取れなくても何もしない
+}
+
 async function loadStats() {
   const rows = await api("/api/stats");
-  const body = $("stats-body");
-  body.innerHTML = "";
-  let lastUnit = null;
-  for (const s of rows) {
-    // 単元が変わるところに見出しの行を入れる
-    if (s.unit_id !== lastUnit) {
-      lastUnit = s.unit_id;
-      const head = document.createElement("tr");
-      head.className = "unit-row";
-      head.innerHTML = `<th colspan="6"></th>`;
-      head.cells[0].textContent = s.unit_name;
-      body.appendChild(head);
-    }
-    const tr = document.createElement("tr");
-    const pct = Math.round(s.accuracy * 100);
-    const mistakes = s.mistakes.length
-      ? `<ul>${s.mistakes.slice(0, 3).map((m) => `<li class="m"></li>`).join("")}</ul>`
-      : "—";
-    tr.innerHTML = `
-      <td></td>
-      <td>${s.attempts}</td>
-      <td>${s.attempts ? `<span class="meter"><span style="width:${pct}%"></span></span>${pct}%` : "—"}</td>
-      <td>${s.box} / 4</td>
-      <td>${s.attempts ? formatDue(s.due_at) : "未学習"}</td>
-      <td>${mistakes}</td>`;
-    tr.cells[0].textContent = s.type_name;
-    tr.querySelectorAll("li.m").forEach((li, i) => {
-      li.textContent = `${s.mistakes[i].label}（${s.mistakes[i].count}回）`;
-    });
-    renderMath(tr);
-    body.appendChild(tr);
+  showDueBadge(rows);
+
+  const attempts = rows.reduce((n, s) => n + s.attempts, 0);
+  const correct = rows.reduce((n, s) => n + s.correct, 0);
+  $("sum-attempts").textContent = attempts;
+  $("sum-accuracy").textContent = attempts ? Math.round((correct / attempts) * 100) : "—";
+  $("sum-accuracy-unit").hidden = !attempts;
+  $("sum-due").textContent = rows.filter(isDue).length;
+
+  // つまずいているところ: 間違えたことのある型を、正答率の低い順に3つまで
+  const weak = rows
+    .filter((s) => s.mistakes.length && s.accuracy < 1)
+    .sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts)
+    .slice(0, 3);
+  $("weak-box").hidden = !weak.length;
+  const weakList = $("weak-list");
+  weakList.innerHTML = "";
+  for (const s of weak) {
+    const item = el("div", "weak-item");
+    const body = el("div", "weak-body");
+    const name = el("div", "weak-name", s.type_name);
+    name.appendChild(el("small", "", `／ ${s.unit_name}`));
+    const mistakes = s.mistakes.slice(0, 2).map((m) => `${m.label} ${m.count}回`);
+    const detail = el("div", "weak-detail");
+    setMathText(detail, `${mistakes.join("、")} ・ 正答率 ${Math.round(s.accuracy * 100)}%`);
+    body.append(name, detail);
+    const go = el("button", "", "この型を練習する");
+    go.type = "button";
+    go.addEventListener("click", () => practiceType(s.unit_id, s.type_id));
+    item.append(body, go);
+    weakList.appendChild(item);
   }
+
+  // 単元ごとの習熟: 型ごとに箱（0〜4）を点で表す
+  const grid = $("stats-units");
+  grid.innerHTML = "";
+  const byUnit = new Map();
+  for (const s of rows) {
+    if (!byUnit.has(s.unit_id)) byUnit.set(s.unit_id, []);
+    byUnit.get(s.unit_id).push(s);
+  }
+  for (const types of byUnit.values()) {
+    const card = el("section", "pane unit-card");
+    const head = el("div", "unit-card-head");
+    const studied = types.filter((s) => s.attempts).length;
+    head.append(el("h3", "", types[0].unit_name), el("span", "", `学習済み ${studied} / ${types.length} 型`));
+    const bar = el("div", "bar");
+    const fill = el("span");
+    fill.style.width = `${(types.reduce((n, s) => n + s.box, 0) / (types.length * 4)) * 100}%`;
+    bar.appendChild(fill);
+    card.append(head, bar);
+    for (const s of types) {
+      const row = el("div", "type-row");
+      const dots = el("span", "dots");
+      dots.setAttribute("aria-label", `習熟 ${s.box} / 4`);
+      for (let i = 0; i < 4; i++) dots.appendChild(el("span", i < s.box ? "dot on" : "dot"));
+      const status = el("span", "status", s.attempts ? formatDue(s.due_at) : "未学習");
+      if (s.attempts) status.classList.add(isDue(s) ? "due" : "later");
+      row.append(el("span", "type-name", s.type_name), dots, status);
+      if (s.mistakes.length) {
+        const m = s.mistakes[0];
+        const note = el("p", "type-mistakes");
+        setMathText(note, `多い間違い: ${m.label}（${m.count}回）`);
+        row.appendChild(note);
+      }
+      card.appendChild(row);
+    }
+    grid.appendChild(card);
+  }
+}
+
+// 成績から、その型の練習に移る
+async function practiceType(unit, type) {
+  await selectUnit(unit, false);
+  $("type-select").value = type;
+  switchTab("practice");
 }
 
 function switchTab(tab) {
@@ -269,6 +350,13 @@ function toggleInput() {
   (useText ? $("answer-text") : $("answer-math")).focus();
 }
 
+// スマホでは、ノートをボタンで開いたときだけ出す（PC では常に出ている）
+function toggleNote() {
+  const open = $("problem-card").classList.toggle("note-open");
+  $("note-toggle").setAttribute("aria-expanded", String(open));
+  $("note-toggle-label").textContent = open ? "ノートを閉じる" : "ノートを開く";
+}
+
 // テキスト入力のとき、入力中の式がどう読み取られるかを表示する
 let previewTimer = null;
 function updatePreview() {
@@ -279,29 +367,29 @@ function updatePreview() {
     return;
   }
   previewTimer = setTimeout(async () => {
-    const el = $("preview");
+    const box = $("preview");
     try {
       const r = await api(`/api/preview?text=${encodeURIComponent(text)}`);
-      el.textContent = "";
-      el.append("読み取った式: ");
+      box.textContent = "";
+      box.append("読み取った式: ");
       const span = document.createElement("span");
       setLatex(span, r.latex);
-      el.append(span);
+      box.append(span);
     } catch (e) {
-      el.textContent = `読み取れません: ${e.message}`;
+      box.textContent = `読み取れません: ${e.message}`;
     }
-    el.hidden = false;
+    box.hidden = false;
   }, 300);
 }
 
-// 数式の入力ボタン（電卓風の 6 列。5 行＋積分・極限用の記号の行）。
+// 数式の入力ボタン（電卓風の 6 列 × 6 行）。
 // latex は数式エディタ用（#? は空欄、#0 は選択中の部分、#@ は直前の項）、
 // text はテキスト入力用で [カーソルの前に入れる文字, 後に入れる文字]。
-// kind は見た目の種類（fn: 関数・編集、num: 数字、op: 演算子、submit: 答え合わせ）。
+// kind は見た目の種類（fn: 関数・記号、num: 数字、op: 演算子、edit: カーソル・削除、clear: 全部消す、submit: 答え合わせ）。
 // math: true のラベルは KaTeX で表示する
 const key = (label, title, latex, text, kind = "fn", math = true) => ({ label, title, latex, text, kind, math });
 const num = (d) => key(d, d, d, [d, ""], "num", false);
-const act = (label, title, action, kind = "fn") => ({ label, title, action, kind });
+const act = (label, title, action, kind = "edit") => ({ label, title, action, kind });
 
 // 変数のキー（x）は、数列の問題では n に置き換える（setVariable）
 const varKey = () => ({ ...key("", "", "", []), variable: true });
@@ -315,7 +403,7 @@ const MATH_BUTTONS = [
   act("←", "カーソルを左へ", "left"),
   act("→", "カーソルを右へ（指数や分数から抜けるときにも使う）", "right"),
   act("⌫", "1文字消す", "backspace"),
-  act("AC", "全部消す", "clear", "op"),
+  act("AC", "全部消す", "clear", "clear"),
 
   key("\\sin", "sin", "\\sin\\left(#0\\right)", ["sin(", ")"]),
   key("\\cos", "cos", "\\cos\\left(#0\\right)", ["cos(", ")"]),
@@ -337,15 +425,15 @@ const MATH_BUTTONS = [
   key("\\dfrac{\\square}{\\square}", "分数", "\\frac{#0}{#?}", ["(", `${FRACTION_MIDDLE})`]),
   num("0"),
   key(".", "小数点", ".", [".", ""], "num", false),
-  act("答え合わせ", "答え合わせ（Enter）", "submit", "submit"),
+  key("\\pi", "円周率", "\\pi", ["pi", ""]),
   key("+", "足し算", "+", ["+", ""], "op", false),
 
-  // 積分・極限で使う記号（左2列と、数字の列の左2つに並ぶ）
-  key("\\pi", "円周率", "\\pi", ["pi", ""]),
+  // 積分・極限で使う記号と、答え合わせ（右下の3列分）
   key("e", "ネイピア数 e", "e", ["e", ""]),
-  key("\\infty", "無限大（極限）", "\\infty", ["oo", ""], "num"),
+  key("\\infty", "無限大（極限）", "\\infty", ["oo", ""]),
   // 「C」だけだと全部消す（Clear）と紛らわしいので「+C」として、押すと + C まで入れる
-  key("+C", "積分定数 +C を入れる", "+C", ["+C", ""], "num"),
+  key("+C", "積分定数 +C を入れる", "+C", ["+C", ""]),
+  act("答え合わせ", "答え合わせ（Enter）", "submit", "submit"),
 ];
 
 // 入力ボタンの入力先。解答欄か、途中式メモの行のうち最後にフォーカスしたもの
@@ -444,7 +532,6 @@ function setupMathButtons() {
     btn.className = `key key-${b.kind}`;
     if (b.action === "submit") btn.id = "submit";
     if (b.math) katex.render(b.label, btn, { throwOnError: false });
-    else if (b.action === "submit") btn.innerHTML = "答え<wbr>合わせ"; // 狭い画面では「答え」の後で折り返す
     else btn.textContent = b.label;
     // クリックで入力欄のフォーカス（カーソル位置）が外れないようにする
     btn.addEventListener("mousedown", (e) => e.preventDefault());
@@ -484,9 +571,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.tab)));
   $("new-problem").addEventListener("click", newProblem);
   $("type-select").addEventListener("change", newProblem);
-  $("unit-select").addEventListener("change", changeUnit);
   $("next").addEventListener("click", newProblem);
+  $("start-review").addEventListener("click", () => switchTab("review"));
   $("toggle-input").addEventListener("click", toggleInput);
+  $("note-toggle").addEventListener("click", toggleNote);
   $("answer-text").addEventListener("input", updatePreview);
   hideMathMenu($("answer-math"));
   setupGuide();
@@ -494,8 +582,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   setupNote();
   // 入力ボタンの入力先を、最後にフォーカスした数式欄にする
   document.addEventListener("focusin", (e) => {
-    const el = e.target;
-    if (el.tagName === "MATH-FIELD" || el.id === "answer-text") activeField = el;
+    const t = e.target;
+    if (t.tagName === "MATH-FIELD" || t.id === "answer-text") activeField = t;
   });
   for (const id of ["answer-math", "answer-text"]) {
     $(id).addEventListener("keydown", (e) => {
@@ -508,4 +596,5 @@ window.addEventListener("DOMContentLoaded", async () => {
   await loadUnits();
   await loadTypes();
   newProblem();
+  refreshDueBadge();
 });

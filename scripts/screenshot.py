@@ -70,10 +70,19 @@ def take_mobile_screenshots(browser, out: Path, url: str, problems: list[str]) -
         problems.append(f"スマホ: 開いたときに {page.evaluate('scrollY')}px 下にずれている")
     if page.evaluate("document.documentElement.scrollWidth") > 390:
         problems.append("スマホ: ページが横にはみ出している")
-    widths = set(page.eval_on_selector_all("#math-buttons .key", "ks => ks.map(k => Math.round(k.getBoundingClientRect().width))"))
+    # 答え合わせのキーは3列分の幅なので除く
+    widths = set(page.eval_on_selector_all("#math-buttons .key:not(#submit)", "ks => ks.map(k => Math.round(k.getBoundingClientRect().width))"))
     if len(widths) > 1:
         problems.append(f"スマホ: 入力キーの幅がそろっていない {sorted(widths)}")
     page.screenshot(path=out / "11_mobile_problem.png", full_page=True)
+
+    # ノートは閉じた状態で始まり、ボタンで開く
+    if page.is_visible("#note"):
+        problems.append("スマホ: ノートが最初から開いている")
+    page.tap("#note-toggle")
+    page.wait_for_timeout(300)
+    page.screenshot(path=out / "11_mobile_note.png", full_page=True)
+    page.tap("#note-toggle")
 
     page.tap("#math-buttons button[title='変数 x']")
     page.tap("#submit")
@@ -82,7 +91,7 @@ def take_mobile_screenshots(browser, out: Path, url: str, problems: list[str]) -
     page.screenshot(path=out / "11_mobile_result.png")
 
     page.tap('.tab[data-tab="stats"]')
-    page.wait_for_selector("#stats-body tr")
+    page.wait_for_selector("#stats-units .unit-card")
     page.screenshot(path=out / "11_mobile_stats.png")
     ctx.close()
 
@@ -90,7 +99,7 @@ def take_mobile_screenshots(browser, out: Path, url: str, problems: list[str]) -
 def take_screenshots(out: Path, url: str) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="chrome")
-        page = browser.new_page(viewport={"width": 1000, "height": 900})
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
         problems = []
         page.on("pageerror", lambda e: problems.append(f"JS エラー: {e}"))
         page.on("console", lambda m: m.type == "error" and problems.append(f"console: {m.text}"))
@@ -137,18 +146,16 @@ def take_screenshots(out: Path, url: str) -> None:
 
         # 単元ごとの問題（問題文・問題・解答欄の表示）
         page.click('.tab[data-tab="practice"]')
-        units = page.eval_on_selector_all("#unit-select option", "os => os.map(o => o.value).filter(v => v)")
+        units = page.eval_on_selector_all("#unit-chips .chip", "cs => cs.map(c => c.dataset.unit).filter(v => v)")
         for i, unit in enumerate(units, start=1):
-            page.select_option("#unit-select", unit)
+            page.click(f'#unit-chips [data-unit="{unit}"]')
             page.wait_for_function("u => typeof current !== 'undefined' && current && current.unit_id === u", arg=unit)
             page.wait_for_timeout(300)
-            card = page.locator("#problem-card").bounding_box()
-            # ノートを除いた上部（問題）と下部（解答欄）を縦に並べたいので、カード全体を撮る
-            page.screenshot(path=out / f"7_unit{i}_{unit}.png", clip={"x": card["x"], "y": card["y"], "width": card["width"], "height": 200})
+            page.locator(".problem-pane").screenshot(path=out / f"7_unit{i}_{unit}.png")
             page.locator("#answer-prefix").screenshot(path=out / f"7_unit{i}_{unit}_prefix.png")
 
         # 極値の問題（解答欄の左に「極大値 =」などの日本語が出る）
-        page.select_option("#unit-select", "application")
+        page.click('#unit-chips [data-unit="application"]')
         page.wait_for_function("() => current.unit_id === 'application'")
         before = page.evaluate("current.problem_id")
         page.select_option("#type-select", "app_extremum")
@@ -157,17 +164,16 @@ def take_screenshots(out: Path, url: str) -> None:
         page.locator("#problem-card .answer-row").screenshot(path=out / "7_extremum_answer_row.png")
 
         # 文章題（式の欄がなく、問題文だけが出る）
-        page.select_option("#unit-select", "probability")
+        page.click('#unit-chips [data-unit="probability"]')
         page.wait_for_function("() => current.unit_id === 'probability'")
         before = page.evaluate("current.problem_id")
         page.select_option("#type-select", "prob_conditional")
         page.wait_for_function("id => current.problem_id !== id && current.type_id === 'prob_conditional'", arg=before)
         page.wait_for_timeout(300)
-        card = page.locator("#problem-card").bounding_box()
-        page.screenshot(path=out / "9_word_problem.png", clip={"x": card["x"], "y": card["y"], "width": card["width"], "height": 200})
+        page.locator(".problem-pane").screenshot(path=out / "9_word_problem.png")
 
         # 数列：入力キーの x が n に変わり、n の式で答え合わせできる
-        page.select_option("#unit-select", "sequence")
+        page.click('#unit-chips [data-unit="sequence"]')
         page.wait_for_function("() => current.unit_id === 'sequence'")
         before = page.evaluate("current.problem_id")
         page.select_option("#type-select", "seq_recur")
@@ -186,7 +192,7 @@ def take_screenshots(out: Path, url: str) -> None:
             page.click("#toggle-input")
 
         # 不定積分で C を付けずに正解したときの注意
-        page.select_option("#unit-select", "integral")
+        page.click('#unit-chips [data-unit="integral"]')
         page.wait_for_function("() => current.unit_id === 'integral'")
         before = page.evaluate("current.problem_id")
         page.select_option("#type-select", "int_power")
@@ -200,7 +206,7 @@ def take_screenshots(out: Path, url: str) -> None:
         page.screenshot(path=out / "8_integral_result.png", full_page=True)
 
         page.click('.tab[data-tab="stats"]')
-        page.wait_for_selector("#stats-body tr")
+        page.wait_for_selector("#stats-units .unit-card")
         page.screenshot(path=out / "6_stats.png", full_page=True)
 
         take_mobile_screenshots(browser, out, url, problems)
